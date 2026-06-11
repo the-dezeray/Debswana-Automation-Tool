@@ -1,0 +1,195 @@
+&{
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName Microsoft.VisualBasic
+
+$BASE = "C:\tool"
+
+# ── Main window ──────────────────────────────────────────────
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "IT Deployment Launcher"
+$form.Size = New-Object System.Drawing.Size(680, 450)
+$form.StartPosition = "CenterScreen"
+$form.BackColor = [System.Drawing.Color]::White
+$form.ForeColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+$form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$form.FormBorderStyle = "FixedSingle"
+$form.MaximizeBox = $false
+
+# Header
+$header = New-Object System.Windows.Forms.Label
+$header.Text = "  IT DEPLOYMENT LAUNCHER"
+$header.Location = New-Object System.Drawing.Point(0, 0)
+$header.Size = New-Object System.Drawing.Size(680, 50)
+$header.Font = New-Object System.Drawing.Font("Segoe UI", 13, [System.Drawing.FontStyle]::Bold)
+$header.ForeColor = [System.Drawing.Color]::FromArgb(30, 70, 180)
+$header.BackColor = [System.Drawing.Color]::FromArgb(230, 238, 255)
+$header.TextAlign = "MiddleLeft"
+$form.Controls.Add($header)
+
+# Credits label
+$credits = New-Object System.Windows.Forms.Label
+$credits.Text = "Built by Desiree Chingwaru and Odirile Mathepeo"
+$credits.Location = New-Object System.Drawing.Point(0, 360)
+$credits.Size = New-Object System.Drawing.Size(680, 22)
+$credits.BackColor = [System.Drawing.Color]::White
+$credits.ForeColor = [System.Drawing.Color]::FromArgb(120, 130, 150)
+$credits.TextAlign = "MiddleCenter"
+$credits.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
+$form.Controls.Add($credits)
+
+# Status label
+$status = New-Object System.Windows.Forms.Label
+$status.Text = "Click a button to install."
+$status.Location = New-Object System.Drawing.Point(0, 385)
+$status.Size = New-Object System.Drawing.Size(680, 26)
+$status.BackColor = [System.Drawing.Color]::FromArgb(240, 244, 255)
+$status.ForeColor = [System.Drawing.Color]::FromArgb(80, 110, 180)
+$status.TextAlign = "MiddleCenter"
+$status.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+$form.Controls.Add($status)
+
+# ── Auto-Grid Button Helper ──────────────────────────────────
+$script:btnIndex = 0
+
+function Add-Button($text, $action) {
+    # Calculate column (0 or 1) and row based on current button index
+    $col = $script:btnIndex % 2
+    $row = [Math]::Floor($script:btnIndex / 2)
+    
+    # X positioning: Column 0 starts at 15, Column 1 starts at 340
+    $x = if ($col -eq 0) { 15 } else { 340 }
+    $y = 65 + ($row * 42)
+
+    $btn = New-Object System.Windows.Forms.Button
+    $btn.Text = $text
+    $btn.Location = New-Object System.Drawing.Point($x, $y)
+    $btn.Size = New-Object System.Drawing.Size(310, 36)
+    $btn.FlatStyle = "Flat"
+    $btn.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(200, 215, 245)
+    $btn.FlatAppearance.BorderSize = 1
+    $btn.BackColor = [System.Drawing.Color]::FromArgb(247, 249, 255)
+    $btn.ForeColor = [System.Drawing.Color]::FromArgb(25, 35, 80)
+    $btn.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $btn.TextAlign = "MiddleLeft"
+    $btn.Padding = New-Object System.Windows.Forms.Padding(10, 0, 0, 0)
+    $btn.Cursor = "Hand"
+    $btn.Add_Click($action)
+    $form.Controls.Add($btn)
+    
+    $script:btnIndex++
+}
+
+# ── Install helper ───────────────────────────────────────────
+function Run($path, $name) {
+    if (-not (Test-Path $path)) {
+        $status.Text = "Not found: $path"
+        $status.ForeColor = [System.Drawing.Color]::FromArgb(200,40,40)
+        return
+    }
+    $status.Text = "Running: $name ..."
+    $status.ForeColor = [System.Drawing.Color]::FromArgb(180,120,0)
+    [System.Windows.Forms.Application]::DoEvents()
+    try {
+        Start-Process -FilePath $path -Wait
+        $status.Text = "$name — done."
+        $status.ForeColor = [System.Drawing.Color]::FromArgb(0,140,80)
+    } catch {
+        $status.Text = "Error: $name"
+        $status.ForeColor = [System.Drawing.Color]::FromArgb(200,40,40)
+    }
+}
+
+function OpenFolder($path) {
+    if (-not (Test-Path $path)) {
+        $status.Text = "Not found: $path"
+        $status.ForeColor = [System.Drawing.Color]::FromArgb(200,40,40)
+        return
+    }
+    Start-Process explorer.exe $path
+    $status.Text = "Opened: $path"
+    $status.ForeColor = [System.Drawing.Color]::FromArgb(0,100,200)
+}
+
+# ════════════════════════════════════════════════════════════
+#  BUTTONS (Automatically maps into 2 columns)
+# ════════════════════════════════════════════════════════════
+
+Add-Button "1.  Dell Command Update" {
+    Run "$BASE\V.soft\DELL_COMMAND_UPDATE_APP\setup.exe" "Dell Command Update"
+}
+
+Add-Button "2.  Microsoft Office 2019  (opens folder)" {
+    OpenFolder "$BASE\V.soft\Standard Software\Office\Office2019"
+}
+
+Add-Button "3.  Cisco IP Communicator" {
+    $exe = Get-ChildItem "$BASE\V.soft\CISCO IP" -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($exe) { Run $exe.FullName "Cisco IP Communicator" } else { OpenFolder "$BASE\V.soft\CISCO IP" }
+}
+
+Add-Button "4.  Adobe Acrobat Reader DC" {
+    $exe = Get-ChildItem "$BASE\V.soft\Standard Software\" -Filter "AcroRdrDC*.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($exe) { Run $exe.FullName "Adobe Acrobat Reader DC" } else { Run "$BASE\V.soft\Standard Software\AcroRdrDC\AcroRdrDC.exe" "Adobe Acrobat Reader DC" }
+}
+
+Add-Button "5.  SCCM Client" {
+    Run "$BASE\V.soft\MC\cd.latest\SMSSETUP\CLIENT\ccmsetup\ccmsetup.exe" "SCCM Client"
+}
+
+Add-Button "6.  SCEP" {
+    Run "$BASE\V.soft\MC\cd.latest\SMSSETUP\CLIENT\ccmsetup\SCEPinstall.exe" "SCEP"
+}
+
+Add-Button "7.  Enterprise Vault 12" {
+    Run "$BASE\V.soft\Standard Software\Enterprise Vault 12\Outlook Addin\x64\setup.exe" "Enterprise Vault 12"
+}
+
+Add-Button "8.  SAP GUI 7.7  (install first)" {
+    $exe = Get-ChildItem "$BASE\SAP7.7\SAPGUI_20220606_1605" -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($exe) { Run $exe.FullName "SAP GUI 7.7" } else { OpenFolder "$BASE\SAP7.7\SAPGUI_20220606_1605" }
+}
+
+Add-Button "9.  SAP Text Editor  (after SAP GUI)" {
+    $exe = Get-ChildItem "$BASE\V.soft\Standard Software\SAP TextEditor" -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($exe) { Run $exe.FullName "SAP Text Editor" } else { OpenFolder "$BASE\V.soft\Standard Software\SAP TextEditor" }
+}
+
+Add-Button "10. CrowdStrike Falcon  (CID required)" {
+    $cid = [Microsoft.VisualBasic.Interaction]::InputBox("Paste the CrowdStrike CID:", "CrowdStrike CID", "")
+    if ([string]::IsNullOrWhiteSpace($cid)) { $status.Text = "Cancelled."; return }
+    $exe = Get-ChildItem "$BASE\Crowd\2025_CrowdStrike" -Filter "Windows*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $exe) { $status.Text = "Installer not found."; $status.ForeColor = [System.Drawing.Color]::FromArgb(200,40,40); return }
+    $status.Text = "Installing CrowdStrike..."
+    $status.ForeColor = [System.Drawing.Color]::FromArgb(180,120,0)
+    [System.Windows.Forms.Application]::DoEvents()
+    Start-Process -FilePath $exe.FullName -ArgumentList "/install /quiet CID=$cid" -Wait
+    $status.Text = "CrowdStrike — done."
+    $status.ForeColor = [System.Drawing.Color]::FromArgb(0,140,80)
+}
+
+Add-Button "11. TITUS Classification Client" {
+    $exe = Get-ChildItem "$BASE\Crowd\TITUS_Classification_Client_2019" -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($exe) { Run $exe.FullName "TITUS Classification Client" } else { OpenFolder "$BASE\Crowd\TITUS_Classification_Client_2019" }
+}
+
+Add-Button "12. Cisco AnyConnect v5.1" {
+    Run "$BASE\Crowd\ANYCONNECT_VERSION_5.13.62\cisco-secure-client-win-5.1.10.233-core.exe" "Cisco AnyConnect"
+}
+
+Add-Button "13. Qualys Agent  (opens admin CMD)" {
+    $src = "$BASE\Crowd\2025_Qualy_installation"
+    $dst = "C:\ProgramData\2025_Qualy_installation"
+    if (-not (Test-Path $src)) { $status.Text = "Qualys folder not found."; $status.ForeColor = [System.Drawing.Color]::FromArgb(200,40,40); return }
+    $status.Text = "Copying Qualys files..."
+    $status.ForeColor = [System.Drawing.Color]::FromArgb(180,120,0)
+    [System.Windows.Forms.Application]::DoEvents()
+    Copy-Item -Path $src -Destination $dst -Recurse -Force
+    Start-Process -FilePath "cmd.exe" -ArgumentList "/K cd /d `"$dst`"" -Verb RunAs
+    $status.Text = "Qualys copied — run install command in CMD."
+    $status.ForeColor = [System.Drawing.Color]::FromArgb(0,100,200)
+}
+
+# ════════════════════════════════════════════════════════════
+[System.Windows.Forms.Application]::Run($form)
+}
