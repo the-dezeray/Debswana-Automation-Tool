@@ -1,0 +1,36 @@
+# ── Enhanced Install helper ───────────────────────────────────
+    function Run($path, $name, $args="", $workingDir="") {
+        if (-not (Test-Path $path)) {
+            $status.Text = "Not found: $path"
+            $status.ForeColor = [System.Drawing.Color]::FromArgb(200,40,40)
+            return
+        }
+        $status.Text = "Running: $name ..."
+        $status.ForeColor = [System.Drawing.Color]::FromArgb(180,120,0)
+        [System.Windows.Forms.Application]::DoEvents()
+        
+        try {
+            # PassThru forces Start-Process to return an object tracking the installer
+            $params = @{ FilePath = $path; Wait = $true; PassThru = $true }
+            if ($args) { $params.ArgumentList = $args }
+            if ($workingDir) { $params.WorkingDirectory = $workingDir }
+            
+            # Start the process and capture its tracking object
+            $process = Start-Process @params
+            
+            # Read the exit code left behind by the installer
+            $exitCode = $process.ExitCode
+
+            # Standard Windows success codes: 0 is success, 3010 means success but needs a reboot
+            if ($exitCode -eq 0 -or $exitCode -eq 3010) {
+                $status.Text = "$name — Completed Successfully!"
+                $status.ForeColor = [System.Drawing.Color]::FromArgb(0,140,80) # Green
+            } else {
+                $status.Text = "$name — Failed (Exit Code: $exitCode)"
+                $status.ForeColor = [System.Drawing.Color]::FromArgb(200,40,40) # Red
+            }
+        } catch {
+            $status.Text = "Error launching: $name"
+            $status.ForeColor = [System.Drawing.Color]::FromArgb(200,40,40)
+        }
+    }
