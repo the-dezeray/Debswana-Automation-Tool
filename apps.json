@@ -1,0 +1,123 @@
+[
+  {
+    "name": "Dell Command Update",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\Dell-Command-Update-Application_8DGG4_WIN_4.4.0_A00 (3).EXE",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "Microsoft Office 2019",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\Office\\Office 2019\\ODT\\*",
+    "args": "/configure configuration-Office2019Enterprise.xml",
+    "workingDir": "C:\\ODT",
+    "category": "Standard",
+    "type": "copy-then-run",
+    "destDir": "C:\\ODT",
+    "exeName": "setup.exe",
+    "standard": true
+  },
+  {
+    "name": "Cisco IP Communicator",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\CISCO IP\\CiscoIPCommunicatorSetup.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "Adobe Acrobat Reader DC",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\AcroRdrDC1502320053_en_US.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "SCCM Client",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\MC\\cd.latest\\SMSSETUP\\CLIENT\\ccmsetup.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "SCEP",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\MC\\cd.latest\\SMSSETUP\\CLIENT\\SCEPInstall.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "Enterprise Vault 12",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\Enterprise Vault 12\\Outlook Add-In\\x64\\Veritas Enterprise Vault Outlook Add-in (x64).msi",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "SAP GUI 7.7",
+    "path": "\\\\10.50.93.5\\g\\SAP7.7\\SAPGUI_20220606_1605\\SAPGUI_20220606_1605.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "SAP Text Editor",
+    "path": "\\\\10.50.93.5\\g\\V.soft\\Standard Software\\SAP TextEditor\\SAPSLTESP00_0-70001053.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "CrowdStrike Falcon",
+    "path": "\\\\10.50.93.5\\g\\Crowd\\2026_Crowdstrike\\FalconSensor_Windows.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "TITUS Classification Client",
+    "path": "\\\\10.50.93.5\\g\\Crowd\\TITUS Classification Clients 2019.1 HF1\\TITUSClassificationSetup.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "Cisco AnyConnect v5.1",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\MC\\ANYCONNECT VERSION 5.1.3.62\\cisco-secure-client-win-5.1.3.62-core-vpn-predeploy-k9.msi",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "Qualys Agent",
+    "path": "\\\\10.50.93.5\\g\\Crowd\\2025_Qualys_Installation\\*",
+    "args": "CustomerId={6d05b321-ecf1-dfcc-8059-a0a0ed37048d} ActivationId={8e74ba58-8b3a-4e71-8f7b-597d8e65ce0d} WebServiceUri=https://qagpublic.qg1.apps.qualys.eu/CloudAgent/",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "copy-then-run",
+    "destDir": "C:\\ProgramData\\2025_Qualys_Installation",
+    "exeName": "QualysCloudAgent.exe",
+    "standard": true
+  }
+]
