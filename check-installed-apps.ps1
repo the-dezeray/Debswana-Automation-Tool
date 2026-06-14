@@ -1,5 +1,10 @@
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
+
+# ── Resolve paths ────────────────────────────────────────────
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$LogoPath = Join-Path $ScriptDir "image.png"
 
 # ════════════════════════════════════════════════════════════
 #  List of apps to check for.
@@ -54,6 +59,7 @@ function Get-InstalledPrograms {
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <Image x:Name="LogoImage" Width="140" Height="26" Margin="0,0,10,0" VerticalAlignment="Center" Stretch="Uniform"/>
             <TextBlock Text="Application Install Status"
                        FontSize="18" FontWeight="Bold"
                        Foreground="#1E46B4" VerticalAlignment="Center"/>
@@ -94,6 +100,29 @@ $window = [Windows.Markup.XamlReader]::Load($reader)
 $resultsList = $window.FindName("ResultsList")
 $refreshBtn  = $window.FindName("RefreshBtn")
 $summaryText = $window.FindName("SummaryText")
+$logoImage   = $window.FindName("LogoImage")
+
+# Set window icon and logo image
+if (Test-Path $LogoPath) {
+    try {
+        # Set window icon
+        $icon = New-Object System.Drawing.Icon($LogoPath)
+        $window.Icon = [System.Windows.Interop.Imaging]::CreateBitmapSourceFromHIcon(
+            $icon.Handle,
+            [System.Windows.Int32Rect]::Empty,
+            [System.Windows.Media.Imaging.BitmapSizeOptions]::FromEmptyOptions()
+        )
+        
+        # Set header logo image
+        $bitmap = New-Object System.Windows.Media.Imaging.BitmapImage
+        $bitmap.BeginInit()
+        $bitmap.UriSource = New-Object System.Uri($LogoPath, [System.UriKind]::Absolute)
+        $bitmap.EndInit()
+        $logoImage.Source = $bitmap
+    } catch {
+        # If loading fails, silently continue
+    }
+}
 
 # ── Run the check and populate the list ─────────────────────
 function Update-Results {

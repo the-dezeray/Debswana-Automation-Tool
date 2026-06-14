@@ -4,6 +4,7 @@ Add-Type -AssemblyName System.Drawing
 # ── Resolve paths ────────────────────────────────────────────
 if (-not $ToolDir) { $ToolDir = (Get-Location).Path }
 $AppsJsonPath = Join-Path $ToolDir "apps.json"
+$LogoPath = Join-Path $ToolDir "image.png"
 
 # ── Shell Copy Helper ────────────────────────────────────────
 function Copy-WithWindowsDialog {
@@ -172,6 +173,15 @@ $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox = $false
 
+# Set form icon from logo
+if (Test-Path $LogoPath) {
+    try {
+        $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($LogoPath)
+    } catch {
+        # If icon extraction fails, silently continue
+    }
+}
+
 # ── Header ───────────────────────────────────────────────────
 $header = New-Object System.Windows.Forms.Panel
 $header.Size = New-Object System.Drawing.Size(1000, 60)
@@ -259,12 +269,24 @@ foreach ($cat in $categories) {
 
 # Credits in Sidebar Bottom
 $credits = New-Object System.Windows.Forms.Label
-$credits.Text = "Built by Desiree Chingwaru, Odirile Mathepeo & Simoen Uden"
-$credits.Location = New-Object System.Drawing.Point(10, 580)
+$credits.Text = "Built by Desiree Chingwaru, Odirile Mathepeo "
+$credits.Location = New-Object System.Drawing.Point(10, 525)
 $credits.Size = New-Object System.Drawing.Size(180, 50)
 $credits.ForeColor = [System.Drawing.Color]::Gray
 $credits.Font = New-Object System.Drawing.Font("Segoe UI", 8)
 $sidebar.Controls.Add($credits)
+
+# Logo in sidebar below credits
+if (Test-Path $LogoPath) {
+    $sidebarLogo = New-Object System.Windows.Forms.PictureBox
+    $sidebarLogo.Location = New-Object System.Drawing.Point(20, 585)
+    $sidebarLogo.Size = New-Object System.Drawing.Size(160, 29)  # Smaller size, maintains 2560:471 ratio
+    $sidebarLogo.SizeMode = "Zoom"
+    try {
+        $sidebarLogo.Image = [System.Drawing.Image]::FromFile($LogoPath)
+        $sidebar.Controls.Add($sidebarLogo)
+    } catch {}
+}
 
 # ── Top Bar (Search & Actions) ───────────────────────────────
 $searchBox = New-Object System.Windows.Forms.TextBox
@@ -407,24 +429,126 @@ $searchBox.Add_TextChanged({ Apply-Filters })
 # ── Install All Handler ──────────────────────────────────────
 $installAllBtn.Add_Click({
     $standardApps = $script:AllApps | Where-Object { $_.standard -eq $true -or $_.category -eq "Standard" }
-    if ($standardApps.Count -eq 0) { return }
-
-    $totalApps = $standardApps.Count
-    $progressBar.Maximum = $totalApps
-    $progressBar.Value = 0
-
-    $installAllBtn.Enabled = $false
-    foreach ($app in $standardApps) {
-        $progressBar.Value++
-        $status.Text = "⏳ Installing ($($progressBar.Value)/$totalApps): $($app.name)..."
-        [System.Windows.Forms.Application]::DoEvents()
-        try {
-            Invoke-AppEntry -App $app -StatusLabel $status
-        } catch {}
+    if ($standardApps.Count -eq 0) { 
+        [System.Windows.Forms.MessageBox]::Show("No standard applications found.", "Info")
+        return 
     }
-    $status.Text = "✅ Installation complete! ($totalApps applications)"
-    $installAllBtn.Enabled = $true
-    $progressBar.Value = 0
+
+    # ── Create Selection Dialog ─────────────────────────────────
+    $selectDlg = New-Object System.Windows.Forms.Form
+    $selectDlg.Text = "Select Applications to Install"
+    $selectDlg.Size = New-Object System.Drawing.Size(650, 550)
+    $selectDlg.StartPosition = "CenterParent"
+    $selectDlg.FormBorderStyle = "FixedDialog"
+    $selectDlg.MaximizeBox = $false
+    $selectDlg.BackColor = [System.Drawing.Color]::White
+
+    # Header
+    $selectHeader = New-Object System.Windows.Forms.Label
+    $selectHeader.Text = "Select the standard applications you want to install:"
+    $selectHeader.Location = New-Object System.Drawing.Point(20, 20)
+    $selectHeader.Size = New-Object System.Drawing.Size(600, 25)
+    $selectHeader.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 11)
+    $selectDlg.Controls.Add($selectHeader)
+
+    # Scrollable panel for checkboxes
+    $checkboxPanel = New-Object System.Windows.Forms.Panel
+    $checkboxPanel.Location = New-Object System.Drawing.Point(20, 55)
+    $checkboxPanel.Size = New-Object System.Drawing.Size(590, 360)
+    $checkboxPanel.BorderStyle = "FixedSingle"
+    $checkboxPanel.AutoScroll = $true
+    $checkboxPanel.BackColor = [System.Drawing.Color]::FromArgb(250, 250, 250)
+    $selectDlg.Controls.Add($checkboxPanel)
+
+    # Create checkboxes for each standard app
+    $checkboxes = @()
+    $yPos = 10
+    foreach ($app in $standardApps) {
+        $checkbox = New-Object System.Windows.Forms.CheckBox
+        $checkbox.Text = "$($app.name) - $($app.category)"
+        $checkbox.Location = New-Object System.Drawing.Point(15, $yPos)
+        $checkbox.Size = New-Object System.Drawing.Size(550, 25)
+        $checkbox.Checked = $true  # Default: all selected
+        $checkbox.Tag = $app
+        $checkbox.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+        $checkboxPanel.Controls.Add($checkbox)
+        $checkboxes += $checkbox
+        $yPos += 35
+    }
+
+    # Select All / Deselect All buttons
+    $selectAllBtn = New-Object System.Windows.Forms.Button
+    $selectAllBtn.Text = "Select All"
+    $selectAllBtn.Location = New-Object System.Drawing.Point(20, 425)
+    $selectAllBtn.Size = New-Object System.Drawing.Size(120, 32)
+    $selectAllBtn.BackColor = [System.Drawing.Color]::FromArgb(70, 130, 180)
+    $selectAllBtn.ForeColor = [System.Drawing.Color]::White
+    $selectAllBtn.FlatStyle = "Flat"
+    $selectAllBtn.Add_Click({
+        foreach ($cb in $checkboxes) { $cb.Checked = $true }
+    })
+    $selectDlg.Controls.Add($selectAllBtn)
+
+    $deselectAllBtn = New-Object System.Windows.Forms.Button
+    $deselectAllBtn.Text = "Deselect All"
+    $deselectAllBtn.Location = New-Object System.Drawing.Point(150, 425)
+    $deselectAllBtn.Size = New-Object System.Drawing.Size(120, 32)
+    $deselectAllBtn.BackColor = [System.Drawing.Color]::White
+    $deselectAllBtn.FlatStyle = "Flat"
+    $deselectAllBtn.Add_Click({
+        foreach ($cb in $checkboxes) { $cb.Checked = $false }
+    })
+    $selectDlg.Controls.Add($deselectAllBtn)
+
+    # Cancel button
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Cancel"
+    $cancelBtn.Location = New-Object System.Drawing.Point(390, 470)
+    $cancelBtn.Size = New-Object System.Drawing.Size(110, 35)
+    $cancelBtn.BackColor = [System.Drawing.Color]::White
+    $cancelBtn.FlatStyle = "Flat"
+    $cancelBtn.Add_Click({ $selectDlg.Close() })
+    $selectDlg.Controls.Add($cancelBtn)
+
+    # Install button
+    $installBtn = New-Object System.Windows.Forms.Button
+    $installBtn.Text = "Install Selected"
+    $installBtn.Location = New-Object System.Drawing.Point(510, 470)
+    $installBtn.Size = New-Object System.Drawing.Size(120, 35)
+    $installBtn.BackColor = [System.Drawing.Color]::FromArgb(70, 130, 180)
+    $installBtn.ForeColor = [System.Drawing.Color]::White
+    $installBtn.FlatStyle = "Flat"
+    $installBtn.Add_Click({
+        $selectedApps = $checkboxes | Where-Object { $_.Checked -eq $true } | ForEach-Object { $_.Tag }
+        
+        if ($selectedApps.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show("Please select at least one application.", "No Selection")
+            return
+        }
+
+        $selectDlg.Close()
+
+        # Install selected apps
+        $totalApps = $selectedApps.Count
+        $progressBar.Maximum = $totalApps
+        $progressBar.Value = 0
+
+        $installAllBtn.Enabled = $false
+        foreach ($app in $selectedApps) {
+            $progressBar.Value++
+            $status.Text = "⏳ Installing ($($progressBar.Value)/$totalApps): $($app.name)..."
+            [System.Windows.Forms.Application]::DoEvents()
+            try {
+                Invoke-AppEntry -App $app -StatusLabel $status
+            } catch {}
+        }
+        $status.Text = "✅ Installation complete! ($totalApps applications)"
+        $installAllBtn.Enabled = $true
+        $progressBar.Value = 0
+    })
+    $selectDlg.Controls.Add($installBtn)
+
+    $selectDlg.ShowDialog() | Out-Null
 })
 
 # ── Add Application Dialog ───────────────────────────────────
