@@ -50,18 +50,18 @@ function Run {
         [System.Windows.Forms.Label]$StatusLabel
     )
 
-    $StatusLabel.Text = "🔍 Checking network path for $Name..."
+    $StatusLabel.Text = "Checking network path for $Name..."
     $StatusLabel.ForeColor = [System.Drawing.Color]::DarkOrange
     [System.Windows.Forms.Application]::DoEvents()
 
     $pathExists = Test-PathWithTimeout -Path $Path -TimeoutSeconds 5
     if (-not $pathExists) {
-        $StatusLabel.Text = "❌ Cannot access: $Path"
+        $StatusLabel.Text = "$([char]0x2716) Cannot access: $Path"
         $StatusLabel.ForeColor = [System.Drawing.Color]::Red
         return
     }
 
-    $StatusLabel.Text = "🚀 Launching installer: $Name ..."
+    $StatusLabel.Text = "Launching installer: $Name ..."
     $StatusLabel.ForeColor = [System.Drawing.Color]::DarkOrange
     [System.Windows.Forms.Application]::DoEvents()
 
@@ -76,10 +76,10 @@ function Run {
             Start-Sleep -Milliseconds 200
         }
 
-        $StatusLabel.Text = "✅ $Name — Installation completed."
+        $StatusLabel.Text = "$([char]0x2714) $Name - Installation completed."
         $StatusLabel.ForeColor = [System.Drawing.Color]::Green
     } catch {
-        $StatusLabel.Text = "❌ Error installing: $Name"
+        $StatusLabel.Text = "$([char]0x2716) Error installing: $Name"
         $StatusLabel.ForeColor = [System.Drawing.Color]::Red
     }
 }
@@ -96,6 +96,72 @@ function Test-DebsWiFi {
     } catch {
         return @{ Connected = $false; SSID = ""; IsDebs = $false }
     }
+}
+
+function Show-CorporateWifiWarning {
+    param(
+        [System.Windows.Forms.Form]$Owner,
+        [hashtable]$WifiStatus,
+        [string]$LogoPath
+    )
+
+    $warning = New-Object System.Windows.Forms.Form
+    $warning.Text = "Corporate WiFi Required"
+    $warning.Size = New-Object System.Drawing.Size(520, 300)
+    $warning.StartPosition = "CenterParent"
+    $warning.FormBorderStyle = "FixedDialog"
+    $warning.MaximizeBox = $false
+    $warning.MinimizeBox = $false
+    $warning.BackColor = [System.Drawing.Color]::White
+    $warning.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $topBar = New-Object System.Windows.Forms.Panel
+    $topBar.Dock = "Top"
+    $topBar.Height = 78
+    $topBar.BackColor = [System.Drawing.Color]::FromArgb(70, 130, 180)
+    $warning.Controls.Add($topBar)
+
+    if (Test-Path $LogoPath) {
+        $logoBox = New-Object System.Windows.Forms.PictureBox
+        $logoBox.Location = New-Object System.Drawing.Point(22, 18)
+        $logoBox.Size = New-Object System.Drawing.Size(180, 34)
+        $logoBox.SizeMode = "Zoom"
+        try {
+            $logoBox.Image = [System.Drawing.Image]::FromFile($LogoPath)
+            $topBar.Controls.Add($logoBox)
+        } catch {}
+    }
+
+    $title = New-Object System.Windows.Forms.Label
+    $title.Text = "Connect to DEBS WiFi"
+    $title.Location = New-Object System.Drawing.Point(28, 100)
+    $title.Size = New-Object System.Drawing.Size(455, 32)
+    $title.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 16)
+    $title.ForeColor = [System.Drawing.Color]::FromArgb(45, 70, 95)
+    $warning.Controls.Add($title)
+
+    $currentNetwork = if ($WifiStatus.Connected -and $WifiStatus.SSID) { $WifiStatus.SSID } else { "No WiFi network detected" }
+
+    $message = New-Object System.Windows.Forms.Label
+    $message.Text = "You are currently connected to: $currentNetwork`r`n`r`nThis tool uses Debswana network locations. Accessing installers and shared paths will not work unless you are connected to the corporate DEBS WiFi."
+    $message.Location = New-Object System.Drawing.Point(30, 142)
+    $message.Size = New-Object System.Drawing.Size(452, 74)
+    $message.ForeColor = [System.Drawing.Color]::FromArgb(60, 60, 60)
+    $message.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+    $warning.Controls.Add($message)
+
+    $okBtn = New-Object System.Windows.Forms.Button
+    $okBtn.Text = "OK"
+    $okBtn.Location = New-Object System.Drawing.Point(382, 228)
+    $okBtn.Size = New-Object System.Drawing.Size(100, 34)
+    $okBtn.BackColor = [System.Drawing.Color]::FromArgb(70, 130, 180)
+    $okBtn.ForeColor = [System.Drawing.Color]::White
+    $okBtn.FlatStyle = "Flat"
+    $okBtn.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $warning.AcceptButton = $okBtn
+    $warning.Controls.Add($okBtn)
+
+    $warning.ShowDialog($Owner) | Out-Null
 }
 
 # ── Open Path Helper ─────────────────────────────────────────
@@ -117,22 +183,22 @@ function Invoke-AppEntry {
     param([psobject]$App, [System.Windows.Forms.Label]$StatusLabel)
 
     if ($App.type -eq "copy-then-run") {
-        $StatusLabel.Text = "🔍 Checking source path for $($App.name)..."
+        $StatusLabel.Text = "Checking source path for $($App.name)..."
         $StatusLabel.ForeColor = [System.Drawing.Color]::DarkOrange
         [System.Windows.Forms.Application]::DoEvents()
 
         if (-not (Test-PathWithTimeout -Path $App.path -TimeoutSeconds 5)) {
-            $StatusLabel.Text = "❌ Cannot access source path"
+            $StatusLabel.Text = "$([char]0x2716) Cannot access source path"
             $StatusLabel.ForeColor = [System.Drawing.Color]::Red
             return
         }
 
-        $StatusLabel.Text = "📦 Copying installation files for $($App.name)..."
+        $StatusLabel.Text = "Copying installation files for $($App.name)..."
         try {
             Copy-WithWindowsDialog $App.path $App.destDir
             $exePath = Join-Path $App.destDir $App.exeName
             if (-not (Test-PathWithTimeout -Path $exePath -TimeoutSeconds 3)) {
-                $StatusLabel.Text = "❌ Installation aborted - Files not copied"
+                $StatusLabel.Text = "$([char]0x2716) Installation aborted - Files not copied"
                 $StatusLabel.ForeColor = [System.Drawing.Color]::Red
                 return
             }
@@ -142,7 +208,7 @@ function Invoke-AppEntry {
             [System.Windows.Forms.Application]::DoEvents()
             Run -Path $exePath -Name $App.name -Args $App.args -WorkingDir $App.destDir -StatusLabel $StatusLabel
         } catch {
-            $StatusLabel.Text = "❌ Error processing $($App.name) files."
+            $StatusLabel.Text = "$([char]0x2716) Error processing $($App.name) files."
             $StatusLabel.ForeColor = [System.Drawing.Color]::Red
         }
     } else {
@@ -210,10 +276,10 @@ $connStatus.Size = New-Object System.Drawing.Size(270, 30)
 $connStatus.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
 $connStatus.TextAlign = "MiddleRight"
 if ($wifiStatus.IsDebs) {
-    $connStatus.Text = "🟢 DEBS WiFi Connected"
+    $connStatus.Text = "● DEBS WiFi Connected"
     $connStatus.ForeColor = [System.Drawing.Color]::LightGreen
 } else {
-    $connStatus.Text = "🔴 Not Connected"
+    $connStatus.Text = "● Not Connected"
     $connStatus.ForeColor = [System.Drawing.Color]::LightCoral
 }
 $header.Controls.Add($connStatus)
@@ -336,7 +402,7 @@ $progressBar.Size = New-Object System.Drawing.Size(730, 15)
 $form.Controls.Add($progressBar)
 
 $status = New-Object System.Windows.Forms.Label
-$status.Text = "✅ Ready."
+$status.Text = "$([char]0x2714) Ready."
 $status.Location = New-Object System.Drawing.Point(220, 680)
 $status.Size = New-Object System.Drawing.Size(730, 20)
 $status.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
@@ -445,7 +511,7 @@ $installAllBtn.Add_Click({
     # ── Create Selection Dialog ─────────────────────────────────
     $selectDlg = New-Object System.Windows.Forms.Form
     $selectDlg.Text = "Select Applications to Install"
-    $selectDlg.Size = New-Object System.Drawing.Size(650, 550)
+    $selectDlg.Size = New-Object System.Drawing.Size(750, 650)
     $selectDlg.StartPosition = "CenterParent"
     $selectDlg.FormBorderStyle = "FixedDialog"
     $selectDlg.MaximizeBox = $false
@@ -455,14 +521,14 @@ $installAllBtn.Add_Click({
     $selectHeader = New-Object System.Windows.Forms.Label
     $selectHeader.Text = "Select the standard applications you want to install:"
     $selectHeader.Location = New-Object System.Drawing.Point(20, 20)
-    $selectHeader.Size = New-Object System.Drawing.Size(600, 25)
+    $selectHeader.Size = New-Object System.Drawing.Size(700, 25)
     $selectHeader.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 11)
     $selectDlg.Controls.Add($selectHeader)
 
     # Scrollable panel for checkboxes
     $checkboxPanel = New-Object System.Windows.Forms.Panel
     $checkboxPanel.Location = New-Object System.Drawing.Point(20, 55)
-    $checkboxPanel.Size = New-Object System.Drawing.Size(590, 360)
+    $checkboxPanel.Size = New-Object System.Drawing.Size(690, 460)
     $checkboxPanel.BorderStyle = "FixedSingle"
     $checkboxPanel.AutoScroll = $true
     $checkboxPanel.BackColor = [System.Drawing.Color]::FromArgb(250, 250, 250)
@@ -484,10 +550,10 @@ $installAllBtn.Add_Click({
         $checkboxes += $checkbox
 
         $statusLbl = New-Object System.Windows.Forms.Label
-        $statusLbl.Text = "Waiting"
+        $statusLbl.Text = ""
         $statusLbl.ForeColor = [System.Drawing.Color]::Gray
         $statusLbl.Location = New-Object System.Drawing.Point(270, ($yPos + 3))
-        $statusLbl.Size = New-Object System.Drawing.Size(280, 20)
+        $statusLbl.Size = New-Object System.Drawing.Size(380, 20)
         $statusLbl.Font = New-Object System.Drawing.Font("Segoe UI", 9)
         $checkboxPanel.Controls.Add($statusLbl)
         
@@ -500,7 +566,7 @@ $installAllBtn.Add_Click({
     # Select All / Deselect All buttons
     $selectAllBtn = New-Object System.Windows.Forms.Button
     $selectAllBtn.Text = "Select All"
-    $selectAllBtn.Location = New-Object System.Drawing.Point(20, 425)
+    $selectAllBtn.Location = New-Object System.Drawing.Point(20, 525)
     $selectAllBtn.Size = New-Object System.Drawing.Size(120, 32)
     $selectAllBtn.BackColor = [System.Drawing.Color]::FromArgb(70, 130, 180)
     $selectAllBtn.ForeColor = [System.Drawing.Color]::White
@@ -512,7 +578,7 @@ $installAllBtn.Add_Click({
 
     $deselectAllBtn = New-Object System.Windows.Forms.Button
     $deselectAllBtn.Text = "Deselect All"
-    $deselectAllBtn.Location = New-Object System.Drawing.Point(150, 425)
+    $deselectAllBtn.Location = New-Object System.Drawing.Point(150, 525)
     $deselectAllBtn.Size = New-Object System.Drawing.Size(120, 32)
     $deselectAllBtn.BackColor = [System.Drawing.Color]::White
     $deselectAllBtn.FlatStyle = "Flat"
@@ -523,15 +589,15 @@ $installAllBtn.Add_Click({
 
     # Progress bar and status (initially hidden or zero)
     $dialogProgressBar = New-Object System.Windows.Forms.ProgressBar
-    $dialogProgressBar.Location = New-Object System.Drawing.Point(20, 470)
-    $dialogProgressBar.Size = New-Object System.Drawing.Size(250, 15)
+    $dialogProgressBar.Location = New-Object System.Drawing.Point(20, 570)
+    $dialogProgressBar.Size = New-Object System.Drawing.Size(350, 15)
     $dialogProgressBar.Visible = $false
     $selectDlg.Controls.Add($dialogProgressBar)
 
     $dialogStatus = New-Object System.Windows.Forms.Label
     $dialogStatus.Text = ""
-    $dialogStatus.Location = New-Object System.Drawing.Point(20, 490)
-    $dialogStatus.Size = New-Object System.Drawing.Size(350, 20)
+    $dialogStatus.Location = New-Object System.Drawing.Point(20, 590)
+    $dialogStatus.Size = New-Object System.Drawing.Size(450, 20)
     $dialogStatus.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
     $dialogStatus.Visible = $false
     $selectDlg.Controls.Add($dialogStatus)
@@ -539,7 +605,7 @@ $installAllBtn.Add_Click({
     # Cancel button
     $cancelBtn = New-Object System.Windows.Forms.Button
     $cancelBtn.Text = "Cancel"
-    $cancelBtn.Location = New-Object System.Drawing.Point(390, 470)
+    $cancelBtn.Location = New-Object System.Drawing.Point(490, 570)
     $cancelBtn.Size = New-Object System.Drawing.Size(110, 35)
     $cancelBtn.BackColor = [System.Drawing.Color]::White
     $cancelBtn.FlatStyle = "Flat"
@@ -549,7 +615,7 @@ $installAllBtn.Add_Click({
     # Install button
     $installBtn = New-Object System.Windows.Forms.Button
     $installBtn.Text = "Install Selected"
-    $installBtn.Location = New-Object System.Drawing.Point(510, 470)
+    $installBtn.Location = New-Object System.Drawing.Point(610, 570)
     $installBtn.Size = New-Object System.Drawing.Size(120, 35)
     $installBtn.BackColor = [System.Drawing.Color]::FromArgb(70, 130, 180)
     $installBtn.ForeColor = [System.Drawing.Color]::White
@@ -564,8 +630,8 @@ $installAllBtn.Add_Click({
 
         # Disable controls to prevent clicking multiple times
         $installBtn.Enabled = $false
-        $selectAllBtn.Enabled = $false
-        $deselectAllBtn.Enabled = $false
+        $selectAllBtn.Visible = $false
+        $deselectAllBtn.Visible = $false
         foreach ($cb in $checkboxes) { $cb.Enabled = $false }
 
         # Setup progress bar
@@ -576,10 +642,17 @@ $installAllBtn.Add_Click({
         
         $dialogStatus.Visible = $true
         $dialogStatus.Text = "Starting installation..."
+        
+        # Pre-fill all selected labels with the waiting icon
+        foreach ($app in $selectedApps) {
+            $lbl = $statusLabels[$app.name]
+            $lbl.Text = "⏳ Waiting in queue..."
+            $lbl.ForeColor = [System.Drawing.Color]::Gray
+        }
 
         foreach ($app in $selectedApps) {
             $lbl = $statusLabels[$app.name]
-            $lbl.Text = "Installing..."
+            $lbl.Text = "🔄 Installing..."
             $lbl.ForeColor = [System.Drawing.Color]::DarkOrange
             [System.Windows.Forms.Application]::DoEvents()
 
@@ -590,12 +663,12 @@ $installAllBtn.Add_Click({
             try {
                 Invoke-AppEntry -App $app -StatusLabel $lbl
             } catch {
-                $lbl.Text = "❌ Error"
+                $lbl.Text = "$([char]0x2716) Error"
                 $lbl.ForeColor = [System.Drawing.Color]::Red
             }
         }
         
-        $dialogStatus.Text = "✅ Installation complete! ($totalApps applications)"
+        $dialogStatus.Text = "$([char]0x2714) Installation complete! ($totalApps applications)"
         $installBtn.Enabled = $false
         $cancelBtn.Text = "Close"
     })
@@ -660,4 +733,9 @@ $addAppBtn.Add_Click({
 
 # ── Initialization ───────────────────────────────────────────
 Apply-Filters
-$form.ShowDialog()
+$form.Add_Shown({
+    if (-not $wifiStatus.IsDebs) {
+        Show-CorporateWifiWarning -Owner $form -WifiStatus $wifiStatus -LogoPath $LogoPath
+    }
+})
+$form.ShowDialog() | Out-Null
