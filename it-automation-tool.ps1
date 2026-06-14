@@ -21,12 +21,20 @@ function Copy-WithWindowsDialog {
 function Test-PathWithTimeout {
     param([string]$Path, [int]$TimeoutSeconds = 5)
     $job = Start-Job -ScriptBlock { param($p) Test-Path $p } -ArgumentList $Path
-    $completed = Wait-Job -Job $job -Timeout $TimeoutSeconds
-    if ($completed) {
+    $timeout = [DateTime]::Now.AddSeconds($TimeoutSeconds)
+    
+    # Loop to allow UI to breathe while waiting for path check
+    while (($job.State -eq 'Running') -and ([DateTime]::Now -lt $timeout)) {
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 50
+    }
+    
+    if ($job.State -eq 'Completed') {
         $result = Receive-Job -Job $job
         Remove-Job -Job $job -Force
         return $result
     } else {
+        Stop-Job -Job $job
         Remove-Job -Job $job -Force
         return $false
     }
@@ -460,19 +468,32 @@ $installAllBtn.Add_Click({
     $checkboxPanel.BackColor = [System.Drawing.Color]::FromArgb(250, 250, 250)
     $selectDlg.Controls.Add($checkboxPanel)
 
-    # Create checkboxes for each standard app
+    # Create checkboxes and status labels for each standard app
     $checkboxes = @()
+    $statusLabels = @{}
     $yPos = 10
     foreach ($app in $standardApps) {
         $checkbox = New-Object System.Windows.Forms.CheckBox
         $checkbox.Text = "$($app.name) - $($app.category)"
         $checkbox.Location = New-Object System.Drawing.Point(15, $yPos)
-        $checkbox.Size = New-Object System.Drawing.Size(550, 25)
+        $checkbox.Size = New-Object System.Drawing.Size(250, 25)
         $checkbox.Checked = $true  # Default: all selected
         $checkbox.Tag = $app
         $checkbox.Font = New-Object System.Drawing.Font("Segoe UI", 10)
         $checkboxPanel.Controls.Add($checkbox)
         $checkboxes += $checkbox
+
+        $statusLbl = New-Object System.Windows.Forms.Label
+        $statusLbl.Text = "Waiting"
+        $statusLbl.ForeColor = [System.Drawing.Color]::Gray
+        $statusLbl.Location = New-Object System.Drawing.Point(270, ($yPos + 3))
+        $statusLbl.Size = New-Object System.Drawing.Size(280, 20)
+        $statusLbl.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+        $checkboxPanel.Controls.Add($statusLbl)
+        
+        # Store label with app name as key to easily access it later
+        $statusLabels[$app.name] = $statusLbl
+
         $yPos += 35
     }
 
@@ -500,6 +521,21 @@ $installAllBtn.Add_Click({
     })
     $selectDlg.Controls.Add($deselectAllBtn)
 
+    # Progress bar and status (initially hidden or zero)
+    $dialogProgressBar = New-Object System.Windows.Forms.ProgressBar
+    $dialogProgressBar.Location = New-Object System.Drawing.Point(20, 470)
+    $dialogProgressBar.Size = New-Object System.Drawing.Size(250, 15)
+    $dialogProgressBar.Visible = $false
+    $selectDlg.Controls.Add($dialogProgressBar)
+
+    $dialogStatus = New-Object System.Windows.Forms.Label
+    $dialogStatus.Text = ""
+    $dialogStatus.Location = New-Object System.Drawing.Point(20, 490)
+    $dialogStatus.Size = New-Object System.Drawing.Size(350, 20)
+    $dialogStatus.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $dialogStatus.Visible = $false
+    $selectDlg.Controls.Add($dialogStatus)
+
     # Cancel button
     $cancelBtn = New-Object System.Windows.Forms.Button
     $cancelBtn.Text = "Cancel"
@@ -526,25 +562,42 @@ $installAllBtn.Add_Click({
             return
         }
 
-        $selectDlg.Close()
+        # Disable controls to prevent clicking multiple times
+        $installBtn.Enabled = $false
+        $selectAllBtn.Enabled = $false
+        $deselectAllBtn.Enabled = $false
+        foreach ($cb in $checkboxes) { $cb.Enabled = $false }
 
-        # Install selected apps
+        # Setup progress bar
         $totalApps = $selectedApps.Count
-        $progressBar.Maximum = $totalApps
-        $progressBar.Value = 0
+        $dialogProgressBar.Maximum = $totalApps
+        $dialogProgressBar.Value = 0
+        $dialogProgressBar.Visible = $true
+        
+        $dialogStatus.Visible = $true
+        $dialogStatus.Text = "Starting installation..."
 
-        $installAllBtn.Enabled = $false
         foreach ($app in $selectedApps) {
-            $progressBar.Value++
-            $status.Text = "⏳ Installing ($($progressBar.Value)/$totalApps): $($app.name)..."
+            $lbl = $statusLabels[$app.name]
+            $lbl.Text = "Installing..."
+            $lbl.ForeColor = [System.Drawing.Color]::DarkOrange
             [System.Windows.Forms.Application]::DoEvents()
+
+            $dialogProgressBar.Value++
+            $dialogStatus.Text = "⏳ Installing ($($dialogProgressBar.Value)/$totalApps): $($app.name)..."
+            [System.Windows.Forms.Application]::DoEvents()
+            
             try {
-                Invoke-AppEntry -App $app -StatusLabel $status
-            } catch {}
+                Invoke-AppEntry -App $app -StatusLabel $lbl
+            } catch {
+                $lbl.Text = "❌ Error"
+                $lbl.ForeColor = [System.Drawing.Color]::Red
+            }
         }
-        $status.Text = "✅ Installation complete! ($totalApps applications)"
-        $installAllBtn.Enabled = $true
-        $progressBar.Value = 0
+        
+        $dialogStatus.Text = "✅ Installation complete! ($totalApps applications)"
+        $installBtn.Enabled = $false
+        $cancelBtn.Text = "Close"
     })
     $selectDlg.Controls.Add($installBtn)
 
