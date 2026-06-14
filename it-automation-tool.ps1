@@ -298,7 +298,7 @@ if (-not $wifiStatus.IsDebs) {
 # ── Main window ──────────────────────────────────────────────
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Desiree Magical Wand"
-$form.Size = New-Object System.Drawing.Size(700, 560)
+$form.Size = New-Object System.Drawing.Size(700, 700)
 $form.StartPosition = "CenterScreen"
 $form.BackColor = [System.Drawing.Color]::White
 $form.ForeColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
@@ -423,14 +423,14 @@ foreach ($cat in $categories) {
 # ── Scrollable panel that holds the app buttons ────────────────
 $buttonPanel = New-Object System.Windows.Forms.Panel
 $buttonPanel.Location = New-Object System.Drawing.Point(0, 140)
-$buttonPanel.Size = New-Object System.Drawing.Size(700, 335)
+$buttonPanel.Size = New-Object System.Drawing.Size(700, 475)
 $buttonPanel.AutoScroll = $true
 $form.Controls.Add($buttonPanel)
 
 # Status label
 $status = New-Object System.Windows.Forms.Label
 $status.Text = "Ready. Click an application to install it."
-$status.Location = New-Object System.Drawing.Point(0, 480)
+$status.Location = New-Object System.Drawing.Point(0, 600)
 $status.Size = New-Object System.Drawing.Size(700, 26)
 $status.BackColor = [System.Drawing.Color]::FromArgb(240, 244, 255)
 $status.ForeColor = [System.Drawing.Color]::FromArgb(80, 110, 180)
@@ -441,7 +441,7 @@ $form.Controls.Add($status)
 # Credits label
 $credits = New-Object System.Windows.Forms.Label
 $credits.Text = "Built by Desiree Chingwaru and Odirile Mathepeo"
-$credits.Location = New-Object System.Drawing.Point(0, 510)
+$credits.Location = New-Object System.Drawing.Point(0, 630)
 $credits.Size = New-Object System.Drawing.Size(700, 22)
 $credits.BackColor = [System.Drawing.Color]::White
 $credits.ForeColor = [System.Drawing.Color]::FromArgb(120, 130, 150)
