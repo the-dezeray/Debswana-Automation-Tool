@@ -263,7 +263,7 @@ $header.BackColor = [System.Drawing.Color]::FromArgb(70, 130, 180)
 $form.Controls.Add($header)
 
 $headerTitle = New-Object System.Windows.Forms.Label
-$headerTitle.Text = "   Desiree Software Center"
+$headerTitle.Text = "   Debswana IT Automation Tool"
 $headerTitle.ForeColor = [System.Drawing.Color]::White
 $headerTitle.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 16)
 $headerTitle.Location = New-Object System.Drawing.Point(0, 15)
