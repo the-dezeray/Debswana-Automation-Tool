@@ -1,0 +1,7 @@
+@echo off
+setlocal
+set "TOOLDIR=%~dp0"
+if "%TOOLDIR:~-1%"=="\" set "TOOLDIR=%TOOLDIR:~0,-1%"
+
+:: Stream the file contents directly into interactive PowerShell input
+type "%TOOLDIR%\it-automation-tool.ps1" | powershell -NoProfile -WindowStyle Hidden -Command -
