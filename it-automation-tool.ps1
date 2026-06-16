@@ -1,5 +1,7 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName PresentationFramework
+Add-Type -AssemblyName WindowsBase
 
 # ── Resolve paths ────────────────────────────────────────────
 if (-not $ToolDir) { $ToolDir = (Get-Location).Path }
@@ -40,6 +42,71 @@ function Test-PathWithTimeout {
     }
 }
 
+# ── Get all installed programs (64-bit, 32-bit, and per-user) ──
+function Get-InstalledPrograms {
+    $paths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+
+    $items = foreach ($path in $paths) {
+        Get-ItemProperty -Path $path -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName } |
+            Select-Object DisplayName, DisplayVersion, Publisher
+    }
+
+    return $items | Sort-Object DisplayName -Unique
+}
+
+# Global cache for installed programs to speed up UI
+$script:InstalledCache = $null
+
+# ── Installation Detection Helper ────────────────────────────
+function Test-AppInstalled {
+    param([psobject]$App)
+    if (-not $App) { return $false }
+
+    # Refresh cache if empty
+    if ($null -eq $script:InstalledCache) {
+        $script:InstalledCache = Get-InstalledPrograms
+    }
+
+    # 1. Use specific check criteria
+    if ($App.checkType) {
+        switch ($App.checkType) {
+            "Registry" {
+                if ($App.checkMatch) {
+                    # Case-insensitive partial match
+                    $found = $script:InstalledCache | Where-Object { $_.DisplayName -like "*$($App.checkMatch)*" }
+                    if ($found) { return $true }
+                }
+            }
+            "File" {
+                if ($App.checkPath -and (Test-Path $App.checkPath)) { return $true }
+            }
+            "Service" {
+                if ($App.checkService) {
+                    $svc = Get-Service -Name $App.checkService -ErrorAction SilentlyContinue
+                    if ($svc) { return $true }
+                }
+            }
+        }
+    }
+
+    # 2. Robust Fallback: Check Registry by app name
+    if ($App.name) {
+        $nameMatch = $script:InstalledCache | Where-Object { $_.DisplayName -like "*$($App.name)*" }
+        if ($nameMatch) { return $true }
+        
+        # 3. Fallback: Windows Start Apps
+        $startApps = Get-StartApps -Name "*$($App.name)*" -ErrorAction SilentlyContinue
+        if ($startApps) { return $true }
+    }
+
+    return $false
+}
+
 # ── Install Helper (Responsive) ────────────────────────────────
 function Run {
     param(
@@ -47,7 +114,9 @@ function Run {
         [string]$Name,
         [string]$Args = "",
         [string]$WorkingDir = "",
-        [System.Windows.Forms.Label]$StatusLabel
+        [System.Windows.Forms.Label]$StatusLabel,
+        [bool]$RunAsAdmin = $false,
+        [bool]$KeepWindowOpen = $false
     )
 
     $StatusLabel.Text = "Checking network path for $Name..."
@@ -58,7 +127,7 @@ function Run {
     if (-not $pathExists) {
         $StatusLabel.Text = "$([char]0x2716) Cannot access: $Path"
         $StatusLabel.ForeColor = [System.Drawing.Color]::Red
-        return
+        return $false
     }
 
     $StatusLabel.Text = "Launching installer: $Name ..."
@@ -67,8 +136,17 @@ function Run {
 
     try {
         $params = @{ FilePath = $Path; PassThru = $true }
-        if ($Args) { $params.ArgumentList = $Args }
+        
+        if ($KeepWindowOpen) {
+            # Use cmd /k to keep window open. Wrap path in quotes for safety.
+            $params.FilePath = "cmd.exe"
+            $params.ArgumentList = "/k `"$Path`" $Args"
+        } else {
+            if ($Args) { $params.ArgumentList = $Args }
+        }
+
         if ($WorkingDir) { $params.WorkingDirectory = $WorkingDir }
+        if ($RunAsAdmin) { $params.Verb = "RunAs" }
 
         $proc = Start-Process @params
         while (-not $proc.HasExited) {
@@ -78,9 +156,11 @@ function Run {
 
         $StatusLabel.Text = "$([char]0x2714) $Name - Installation completed."
         $StatusLabel.ForeColor = [System.Drawing.Color]::Green
+        return $true
     } catch {
         $StatusLabel.Text = "$([char]0x2716) Error installing: $Name"
         $StatusLabel.ForeColor = [System.Drawing.Color]::Red
+        return $false
     }
 }
 
@@ -182,6 +262,10 @@ function Open-AppPath {
 function Invoke-AppEntry {
     param([psobject]$App, [System.Windows.Forms.Label]$StatusLabel)
 
+    # Extract new properties with defaults
+    $runAsAdmin = if ($App.runAsAdmin) { $true } else { $false }
+    $keepWindowOpen = if ($App.keepWindowOpen) { $true } else { $false }
+
     if ($App.type -eq "copy-then-run") {
         $StatusLabel.Text = "Checking source path for $($App.name)..."
         $StatusLabel.ForeColor = [System.Drawing.Color]::DarkOrange
@@ -190,7 +274,7 @@ function Invoke-AppEntry {
         if (-not (Test-PathWithTimeout -Path $App.path -TimeoutSeconds 5)) {
             $StatusLabel.Text = "$([char]0x2716) Cannot access source path"
             $StatusLabel.ForeColor = [System.Drawing.Color]::Red
-            return
+            return $false
         }
 
         $StatusLabel.Text = "Copying installation files for $($App.name)..."
@@ -200,19 +284,20 @@ function Invoke-AppEntry {
             if (-not (Test-PathWithTimeout -Path $exePath -TimeoutSeconds 3)) {
                 $StatusLabel.Text = "$([char]0x2716) Installation aborted - Files not copied"
                 $StatusLabel.ForeColor = [System.Drawing.Color]::Red
-                return
+                return $false
             }
 
             $StatusLabel.Text = "🚀 Files verified. Launching installer..."
             $StatusLabel.ForeColor = [System.Drawing.Color]::Green
             [System.Windows.Forms.Application]::DoEvents()
-            Run -Path $exePath -Name $App.name -Args $App.args -WorkingDir $App.destDir -StatusLabel $StatusLabel
+            return Run -Path $exePath -Name $App.name -Args $App.args -WorkingDir $App.destDir -StatusLabel $StatusLabel -RunAsAdmin $runAsAdmin -KeepWindowOpen $keepWindowOpen
         } catch {
             $StatusLabel.Text = "$([char]0x2716) Error processing $($App.name) files."
             $StatusLabel.ForeColor = [System.Drawing.Color]::Red
+            return $false
         }
     } else {
-        Run -Path $App.path -Name $App.name -Args $App.args -WorkingDir $App.workingDir -StatusLabel $StatusLabel
+        return Run -Path $App.path -Name $App.name -Args $App.args -WorkingDir $App.workingDir -StatusLabel $StatusLabel -RunAsAdmin $runAsAdmin -KeepWindowOpen $keepWindowOpen
     }
 }
 
@@ -251,9 +336,7 @@ $form.MaximizeBox = $false
 if (Test-Path $LogoPath) {
     try {
         $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($LogoPath)
-    } catch {
-        # If icon extraction fails, silently continue
-    }
+    } catch {}
 }
 
 # ── Header ───────────────────────────────────────────────────
@@ -263,7 +346,7 @@ $header.BackColor = [System.Drawing.Color]::FromArgb(70, 130, 180)
 $form.Controls.Add($header)
 
 $headerTitle = New-Object System.Windows.Forms.Label
-$headerTitle.Text = "   Desiree Software Center"
+$headerTitle.Text = "   Debswana IT Automation Tool"
 $headerTitle.ForeColor = [System.Drawing.Color]::White
 $headerTitle.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 16)
 $headerTitle.Location = New-Object System.Drawing.Point(0, 15)
@@ -342,6 +425,19 @@ foreach ($cat in $categories) {
 }
 
 # Credits in Sidebar Bottom
+$refreshStatusBtn = New-Object System.Windows.Forms.Button
+$refreshStatusBtn.Text = "🔄 Refresh Status"
+$refreshStatusBtn.Location = New-Object System.Drawing.Point(10, 480)
+$refreshStatusBtn.Size = New-Object System.Drawing.Size(180, 35)
+$refreshStatusBtn.BackColor = [System.Drawing.Color]::White
+$refreshStatusBtn.FlatStyle = "Flat"
+$refreshStatusBtn.Cursor = "Hand"
+$refreshStatusBtn.Add_Click({
+    $script:InstalledCache = $null
+    Apply-Filters
+})
+$sidebar.Controls.Add($refreshStatusBtn)
+
 $credits = New-Object System.Windows.Forms.Label
 $credits.Text = "Built by Desiree Chingwaru, Odirile Mathepeo "
 $credits.Location = New-Object System.Drawing.Point(10, 525)
@@ -354,7 +450,7 @@ $sidebar.Controls.Add($credits)
 if (Test-Path $LogoPath) {
     $sidebarLogo = New-Object System.Windows.Forms.PictureBox
     $sidebarLogo.Location = New-Object System.Drawing.Point(20, 585)
-    $sidebarLogo.Size = New-Object System.Drawing.Size(160, 29)  # Smaller size, maintains 2560:471 ratio
+    $sidebarLogo.Size = New-Object System.Drawing.Size(160, 29)
     $sidebarLogo.SizeMode = "Zoom"
     try {
         $sidebarLogo.Image = [System.Drawing.Image]::FromFile($LogoPath)
@@ -452,21 +548,38 @@ function Render-AppCards {
         $appCat.Font = New-Object System.Drawing.Font("Segoe UI", 8)
         $card.Controls.Add($appCat)
 
-        # Single Action Button (Click to Install, Right-Click for Options)
+        # Action Button / Status Badge
         $btnAction = New-Object System.Windows.Forms.Button
-        $btnAction.Text = "Install"
-        $btnAction.Location = New-Object System.Drawing.Point(250, 22)
-        $btnAction.Size = New-Object System.Drawing.Size(80, 30)
+        $btnAction.Location = New-Object System.Drawing.Point(245, 22)
+        $btnAction.Size = New-Object System.Drawing.Size(85, 30)
         $btnAction.Tag = $app
         $btnAction.Cursor = "Hand"
-        $btnAction.BackColor = [System.Drawing.Color]::FromArgb(70, 130, 180)
-        $btnAction.ForeColor = [System.Drawing.Color]::White
         $btnAction.FlatStyle = "Flat"
+        
+        # Robust installation check
+        if (Test-AppInstalled -App $app) {
+            $btnAction.Text = "Installed"
+            $btnAction.BackColor = [System.Drawing.Color]::MediumSeaGreen
+            $btnAction.ForeColor = [System.Drawing.Color]::White
+        } else {
+            $btnAction.Text = "Install"
+            $btnAction.BackColor = [System.Drawing.Color]::FromArgb(70, 130, 180)
+            $btnAction.ForeColor = [System.Drawing.Color]::White
+        }
         
         # Left Click - Install
         $btnAction.Add_Click({
             $form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
-            Invoke-AppEntry -App $this.Tag -StatusLabel $status
+            $success = Invoke-AppEntry -App $this.Tag -StatusLabel $status
+            
+            # Immediately flip UI to green on completion success
+            if ($success) {
+                # Reset cache so next check is accurate
+                $script:InstalledCache = $null
+                $this.Text = "Installed"
+                $this.BackColor = [System.Drawing.Color]::MediumSeaGreen
+                $this.ForeColor = [System.Drawing.Color]::White
+            }
             $form.Cursor = [System.Windows.Forms.Cursors]::Default
         })
         
@@ -661,7 +774,7 @@ $installAllBtn.Add_Click({
             [System.Windows.Forms.Application]::DoEvents()
             
             try {
-                Invoke-AppEntry -App $app -StatusLabel $lbl
+                $res = Invoke-AppEntry -App $app -StatusLabel $lbl
             } catch {
                 $lbl.Text = "$([char]0x2716) Error"
                 $lbl.ForeColor = [System.Drawing.Color]::Red
@@ -669,8 +782,13 @@ $installAllBtn.Add_Click({
         }
         
         $dialogStatus.Text = "$([char]0x2714) Installation complete! ($totalApps applications)"
+        # Reset cache so next check is accurate
+        $script:InstalledCache = $null
         $installBtn.Enabled = $false
         $cancelBtn.Text = "Close"
+        
+        # Refresh master list dashboard indicators
+        Apply-Filters
     })
     $selectDlg.Controls.Add($installBtn)
 
@@ -685,7 +803,6 @@ $addAppBtn.Add_Click({
     $dlg.StartPosition = "CenterParent"
     $dlg.FormBorderStyle = "FixedDialog"
 
-    # (Dialog labels/inputs generation omitted for brevity but mirror your exact UI sizes)
     $lblName = New-Object System.Windows.Forms.Label; $lblName.Text = "Name:"; $lblName.Location = New-Object System.Drawing.Point(15, 15); $dlg.Controls.Add($lblName)
     $txtName = New-Object System.Windows.Forms.TextBox; $txtName.Location = New-Object System.Drawing.Point(120, 15); $txtName.Size = New-Object System.Drawing.Size(330, 22); $dlg.Controls.Add($txtName)
 

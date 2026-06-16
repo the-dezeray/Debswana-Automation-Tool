@@ -22,6 +22,7 @@ $AppsToCheck = @(
     @{ Name = "SCEP / Endpoint Protection"; Type = "Registry"; Match = "Endpoint Protection" },
     @{ Name = "Enterprise Vault";           Type = "Registry"; Match = "Enterprise Vault" },
     @{ Name = "SAP GUI";                    Type = "Registry"; Match = "SAP GUI" },
+    @{ Name = "SAPscript Legacy Text Editor"; Type = "Registry"; Match = "SAPscript" },
     @{ Name = "CrowdStrike Falcon";         Type = "Registry"; Match = "CrowdStrike Sensor Platform" },
     @{ Name = "TITUS Classification";       Type = "Registry"; Match = "TITUS Classification" },
     @{ Name = "Qualys Agent";               Type = "Registry"; Match = "Qualys Cloud Security Agent" }

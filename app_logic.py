@@ -1,13 +1,33 @@
 import json
 import os
+import sys
 import shutil
 import subprocess
 import threading
 from typing import List, Dict, Any, Optional
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
 class AppLogic:
     def __init__(self, apps_json_path: str = "apps.json"):
-        self.apps_json_path = apps_json_path
+        # For apps.json, we want it to be external to the EXE
+        # so users can edit it without rebuilding.
+        if getattr(sys, 'frozen', False):
+            # If running as EXE, look in the same folder as the EXE
+            base_dir = os.path.dirname(sys.executable)
+            self.apps_json_path = os.path.join(base_dir, apps_json_path)
+        else:
+            # If running as script, look in current folder
+            self.apps_json_path = os.path.abspath(apps_json_path)
+            
         self.apps: List[Dict[str, Any]] = []
         self.load_apps()
 
@@ -134,6 +154,39 @@ class AppLogic:
         except Exception as e:
             update_status(f"Error installing {name}: {str(e)}", "red")
             return False
+
+    def is_app_installed(self, app: Dict[str, Any]) -> bool:
+        check_type = app.get("checkType")
+        check_match = app.get("checkMatch")
+        check_path = app.get("checkPath")
+        check_service = app.get("checkService")
+
+        if not check_type:
+            # Fallback to name match in registry
+            check_type = "Registry"
+            check_match = app.get("name")
+
+        try:
+            if check_type == "Registry":
+                ps_cmd = f'Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* | Where-Object {{ $_.DisplayName -like "*{check_match}*" }}'
+                output = subprocess.check_output(["powershell", "-Command", ps_cmd], 
+                                               stderr=subprocess.STDOUT, 
+                                               universal_newlines=True,
+                                               creationflags=subprocess.CREATE_NO_WINDOW)
+                return len(output.strip()) > 0
+            
+            elif check_type == "File":
+                return os.path.exists(check_path) if check_path else False
+            
+            elif check_type == "Service":
+                ps_cmd = f'Get-Service -Name "{check_service}"'
+                subprocess.check_call(["powershell", "-Command", ps_cmd], 
+                                    stderr=subprocess.STDOUT, 
+                                    creationflags=subprocess.CREATE_NO_WINDOW)
+                return True
+        except Exception:
+            pass
+        return False
 
     def add_app(self, name, path, args, working_dir, category, app_type="exe"):
         new_app = {

@@ -4,7 +4,7 @@ from tkinter import messagebox, filedialog
 from PIL import Image, ImageTk
 import os
 import threading
-from app_logic import AppLogic
+from app_logic import AppLogic, resource_path
 
 # Set appearance and theme
 ctk.set_appearance_mode("light")
@@ -44,9 +44,10 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.select_category("All")
 
         # Logo at bottom of sidebar
-        if os.path.exists("image.png"):
+        logo_file = resource_path("image.png")
+        if os.path.exists(logo_file):
             try:
-                logo_image = Image.open("image.png")
+                logo_image = Image.open(logo_file)
                 # Maintain aspect ratio - 160 width
                 w, h = logo_image.size
                 new_h = int(160 * h / w)
@@ -171,7 +172,11 @@ class DesireeSoftwareCenter(ctk.CTk):
         cat_label = ctk.CTkLabel(card, text=app.get("category", ""), font=ctk.CTkFont(size=11), text_color="gray")
         cat_label.grid(row=1, column=0, padx=15, pady=(0, 10), sticky="w")
 
-        install_btn = ctk.CTkButton(card, text="Install", width=80, height=30, fg_color="#4682B4", command=lambda a=app: self.install_thread(a))
+        is_installed = self.logic.is_app_installed(app)
+        btn_text = "Installed" if is_installed else "Install"
+        btn_color = "#2e7d32" if is_installed else "#4682B4" # Green if installed
+
+        install_btn = ctk.CTkButton(card, text=btn_text, width=80, height=30, fg_color=btn_color, command=lambda a=app: self.install_thread(a))
         install_btn.grid(row=0, column=1, rowspan=2, padx=15, pady=10)
 
     def install_thread(self, app):
@@ -180,9 +185,11 @@ class DesireeSoftwareCenter(ctk.CTk):
     def run_install(self, app):
         self.progress_bar.set(0.2)
         self.install_all_btn.configure(state="disabled")
-        self.logic.install_app(app, status_callback=self.update_status)
+        success = self.logic.install_app(app, status_callback=self.update_status)
         self.progress_bar.set(1.0)
         self.install_all_btn.configure(state="normal")
+        if success:
+            self.render_apps() # Refresh to show "Installed"
 
     def update_status(self, message, color="white"):
         # Map color names to hex if needed, but customtkinter labels handle some names
