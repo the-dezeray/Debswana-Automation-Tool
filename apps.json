@@ -1,0 +1,83 @@
+[
+  {
+    "name": "SAP GUI 7.7",
+    "path": "\\\\10.50.93.5\\g\\SAP7.7\\SAPGUI_20220606_1605\\SAPGUI_20220606_1605.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "SAP GUI"
+  },
+  {
+    "name": "SAPscript Legacy Text Editor",
+    "path": "\\\\10.50.93.5\\g\\V.soft\\Standard Software\\SAP TextEditor\\SAPSLTESP00_0-70001053.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "SAPscript"
+  },
+  {
+    "name": "Dell Command Update",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\Dell-Command-Update-Application_8DGG4_WIN_4.4.0_A00 (3).EXE",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "Dell Command"
+  },
+  {
+    "name": "CrowdStrike Falcon",
+    "path": "\\\\10.50.93.5\\g\\Crowd\\2026_Crowdstrike\\FalconSensor_Windows.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "CrowdStrike Sensor Platform"
+  },
+  {
+    "name": "TITUS Classification Client",
+    "path": "\\\\10.50.93.5\\g\\Crowd\\TITUS Classification Clients 2019.1 HF1\\TITUSClassificationSetup.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "TITUS Classification"
+  },
+  {
+    "name": "Cisco AnyConnect v5.1",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\MC\\ANYCONNECT VERSION 5.1.3.62\\cisco-secure-client-win-5.1.3.62-core-vpn-predeploy-k9.msi",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true,
+    "checkType": "File",
+    "checkPath": "C:\\Program Files (x86)\\Cisco\\Cisco Secure Client\\vpnagent.exe"
+  },
+  {
+    "name": "Qualys Agent",
+    "path": "\\\\10.50.93.5\\g\\Crowd\\2025_Qualys_Installation\\*",
+    "args": "CustomerId={6d05b321-ecf1-dfcc-8059-a0a0ed37048d} ActivationId={8e74ba58-8b3a-4e71-8f7b-597d8e65ce0d} WebServiceUri=https://qagpublic.qg1.apps.qualys.eu/CloudAgent/",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "copy-then-run",
+    "destDir": "C:\\ProgramData\\2025_Qualys_Installation",
+    "exeName": "QualysCloudAgent.exe",
+    "standard": true,
+    "runAsAdmin": true,
+    "keepWindowOpen": true,
+    "checkType": "Registry",
+    "checkMatch": "Qualys Cloud Security Agent"
+  }
+]
