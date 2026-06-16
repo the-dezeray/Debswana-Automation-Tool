@@ -11,13 +11,13 @@
     "checkMatch": "Dell Command"
   },
   {
-    "name": "Microsoft Office 2019",
-    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\Office\\Office 2019\\ODT\\*",
-    "args": "/configure configuration-Office2019Enterprise.xml",
-    "workingDir": "C:\\ODT",
+    "name": "Microsoft Office 2024 Pro Plus",
+    "path": "\\\\10.50.93.5\\g\\Crowd\\New Office Offline Installer\\Office 2024 Pro plus\\*",
+    "args": "/configure download.xml",
+    "workingDir": "C:\\Office2024",
     "category": "Standard",
     "type": "copy-then-run",
-    "destDir": "C:\\ODT",
+    "destDir": "C:\\Office2024",
     "exeName": "setup.exe",
     "standard": true
   },
