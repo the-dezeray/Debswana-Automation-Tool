@@ -88,6 +88,9 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.add_app_btn = ctk.CTkButton(self.action_frame, text="+ Add App", fg_color="white", text_color="black", border_width=1, command=self.show_add_app_dialog)
         self.add_app_btn.grid(row=0, column=2, padx=10, pady=10)
 
+        self.refresh_btn = ctk.CTkButton(self.action_frame, text="↻ Refresh", width=100, fg_color="transparent", text_color=("gray10", "gray90"), border_width=1, command=self.manual_refresh)
+        self.refresh_btn.grid(row=0, column=3, padx=10, pady=10)
+
         # Dashboard (Scrollable)
         self.dashboard_frame = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
         self.dashboard_frame.grid(row=2, column=0, padx=20, pady=10, sticky="nsew")
@@ -106,6 +109,17 @@ class DesireeSoftwareCenter(ctk.CTk):
 
         self.update_wifi_status()
         self.render_apps()
+        # Initial refresh in background to keep UI responsive
+        self.after(100, self.manual_refresh)
+
+    def manual_refresh(self):
+        self.update_status("Refreshing application status...", "orange")
+        threading.Thread(target=self._refresh_task, daemon=True).start()
+
+    def _refresh_task(self):
+        self.logic.refresh_installed_apps_cache()
+        self.after(0, self.render_apps)
+        self.after(0, lambda: self.update_status("Ready.", "white"))
 
     def select_category(self, category):
         self.selected_category = category
@@ -134,6 +148,11 @@ class DesireeSoftwareCenter(ctk.CTk):
                                "This tool uses Debswana network locations. Accessing installers and shared paths will not work unless you are connected to the corporate DEBS WiFi.")
 
     def render_apps(self):
+        # Ensure this runs on the main thread if called from a thread
+        if threading.current_thread() != threading.main_thread():
+            self.after(0, self.render_apps)
+            return
+
         # Clear current dashboard
         for widget in self.dashboard_frame.winfo_children():
             widget.destroy()
@@ -189,9 +208,15 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.progress_bar.set(1.0)
         self.install_all_btn.configure(state="normal")
         if success:
+            self.logic.refresh_installed_apps_cache()
             self.render_apps() # Refresh to show "Installed"
 
     def update_status(self, message, color="white"):
+        # Ensure this runs on main thread
+        if threading.current_thread() != threading.main_thread():
+            self.after(0, lambda: self.update_status(message, color))
+            return
+
         # Map color names to hex if needed, but customtkinter labels handle some names
         color_map = {"orange": "#FF8C00", "red": "#FF0000", "green": "#008000", "white": "black"}
         self.status_label.configure(text=message, text_color=color_map.get(color, "black"))
@@ -250,6 +275,9 @@ class DesireeSoftwareCenter(ctk.CTk):
             self.update_status(f"Installing ({i+1}/{total}): {app['name']}...", "orange")
             self.progress_bar.set((i + 1) / total)
             self.logic.install_app(app, status_callback=self.update_status)
+        
+        self.logic.refresh_installed_apps_cache()
+        self.render_apps()
         self.update_status(f"Installation complete! ({total} applications)", "green")
         self.install_all_btn.configure(state="normal")
 

@@ -46,7 +46,9 @@
     "workingDir": "",
     "category": "Standard",
     "type": "exe",
-    "standard": true
+    "standard": true,
+    "checkType": "Service",
+    "checkService": "CcmExec"
   },
   {
     "name": "SCEP",
@@ -55,7 +57,9 @@
     "workingDir": "",
     "category": "Standard",
     "type": "exe",
-    "standard": true
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "Endpoint Protection"
   },
   {
     "name": "Enterprise Vault 12",
@@ -64,7 +68,9 @@
     "workingDir": "",
     "category": "Standard",
     "type": "exe",
-    "standard": true
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "Enterprise Vault"
   },
   {
     "name": "SAP GUI 7.7",
