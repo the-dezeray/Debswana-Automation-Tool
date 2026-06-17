@@ -29,6 +29,7 @@ class AppLogic:
             self.apps_json_path = os.path.abspath(apps_json_path)
             
         self.apps: List[Dict[str, Any]] = []
+        self.installed_apps_cache = None
         self.load_apps()
 
     def load_apps(self):
@@ -48,6 +49,29 @@ class AppLogic:
                 json.dump(self.apps, f, indent=2)
         except Exception as e:
             print(f"Error saving apps.json: {e}")
+
+    def refresh_installed_apps_cache(self):
+        """Fetches all installed apps from registry once to speed up checks"""
+        try:
+            # More robust PowerShell command with error handling for each path
+            ps_cmd = (
+                "$paths = @("
+                "'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*', "
+                "'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*', "
+                "'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'); "
+                "foreach ($path in $paths) { "
+                "  Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | "
+                "  Where-Object { $_.DisplayName } | Select-Object -ExpandProperty DisplayName"
+                "}"
+            )
+            output = subprocess.check_output(["powershell", "-Command", ps_cmd], 
+                                           stderr=subprocess.STDOUT, 
+                                           universal_newlines=True,
+                                           creationflags=subprocess.CREATE_NO_WINDOW)
+            self.installed_apps_cache = [line.strip() for line in output.splitlines() if line.strip()]
+        except Exception as e:
+            print(f"Error caching installed apps: {e}")
+            self.installed_apps_cache = []
 
     def get_categories(self) -> List[str]:
         categories = set()
@@ -120,9 +144,6 @@ class AppLogic:
                             shutil.copy2(s, d)
                 else:
                     if os.path.isdir(source):
-                        # Use a simpler way to copy directory contents if it already exists
-                        # shutil.copytree requires destination to NOT exist in some python versions
-                        # or has dirs_exist_ok in 3.8+
                         shutil.copytree(source, dest_dir, dirs_exist_ok=True)
                     else:
                         shutil.copy2(source, dest_dir)
@@ -139,9 +160,6 @@ class AppLogic:
             
             cmd = [path]
             if args:
-                # This might be tricky if args is a single string with spaces
-                # Powershell handles it differently. 
-                # For simplicity, we'll try to split if it looks like multiple args
                 import shlex
                 cmd.extend(shlex.split(args))
 
@@ -160,30 +178,44 @@ class AppLogic:
         check_match = app.get("checkMatch")
         check_path = app.get("checkPath")
         check_service = app.get("checkService")
-
-        if not check_type:
-            # Fallback to name match in registry
-            check_type = "Registry"
-            check_match = app.get("name")
+        app_name = app.get("name", "")
 
         try:
-            if check_type == "Registry":
-                ps_cmd = f'Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* | Where-Object {{ $_.DisplayName -like "*{check_match}*" }}'
-                output = subprocess.check_output(["powershell", "-Command", ps_cmd], 
-                                               stderr=subprocess.STDOUT, 
-                                               universal_newlines=True,
-                                               creationflags=subprocess.CREATE_NO_WINDOW)
-                return len(output.strip()) > 0
+            # 1. Primary Check based on checkType
+            if check_type == "Registry" and check_match:
+                if self.installed_apps_cache:
+                    for installed_name in self.installed_apps_cache:
+                        if check_match.lower() in installed_name.lower():
+                            return True
             
-            elif check_type == "File":
-                return os.path.exists(check_path) if check_path else False
+            elif check_type == "File" and check_path:
+                if os.path.exists(check_path):
+                    return True
             
-            elif check_type == "Service":
-                ps_cmd = f'Get-Service -Name "{check_service}"'
+            elif check_type == "Service" and check_service:
+                ps_cmd = f'Get-Service -Name "{check_service}" -ErrorAction SilentlyContinue'
+                # check_call returns 0 on success, raises exception on failure
                 subprocess.check_call(["powershell", "-Command", ps_cmd], 
                                     stderr=subprocess.STDOUT, 
                                     creationflags=subprocess.CREATE_NO_WINDOW)
                 return True
+
+            # 2. Robust Fallback: Check Registry by App Name if not already found
+            if self.installed_apps_cache:
+                for installed_name in self.installed_apps_cache:
+                    if app_name.lower() in installed_name.lower():
+                        return True
+
+            # 3. Final Fallback: Check via Get-StartApps (Windows 10+)
+            if app_name:
+                ps_cmd = f'Get-StartApps -Name "*{app_name}*" -ErrorAction SilentlyContinue'
+                output = subprocess.check_output(["powershell", "-Command", ps_cmd], 
+                                               stderr=subprocess.STDOUT, 
+                                               universal_newlines=True,
+                                               creationflags=subprocess.CREATE_NO_WINDOW)
+                if output.strip():
+                    return True
+
         except Exception:
             pass
         return False
