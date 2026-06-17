@@ -115,6 +115,8 @@ class AppLogic:
         dest_dir = app.get("destDir", "")
         exe_name = app.get("exeName", "")
 
+        run_as_admin = app.get("runAsAdmin", False)
+
         def update_status(msg, color="white"):
             if status_callback:
                 status_callback(msg, color)
@@ -158,13 +160,26 @@ class AppLogic:
 
             update_status(f"Launching installer: {name}...", "orange")
             
-            cmd = [path]
-            if args:
-                import shlex
-                cmd.extend(shlex.split(args))
+            if run_as_admin:
+                # Use PowerShell Start-Process with -Verb RunAs for elevation
+                # We wrap arguments carefully to ensure they reach the elevated process
+                ps_args = f'-FilePath "{path}"'
+                if args:
+                    ps_args += f' -ArgumentList "{args}"'
+                if working_dir:
+                    ps_args += f' -WorkingDirectory "{working_dir}"'
+                
+                ps_cmd = f'Start-Process {ps_args} -Verb RunAs -Wait'
+                subprocess.check_call(["powershell", "-Command", ps_cmd], 
+                                    creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                cmd = [path]
+                if args:
+                    import shlex
+                    cmd.extend(shlex.split(args))
 
-            proc = subprocess.Popen(cmd, cwd=working_dir if working_dir else None)
-            proc.wait()
+                proc = subprocess.Popen(cmd, cwd=working_dir if working_dir else None)
+                proc.wait()
 
             update_status(f"{name} - Installation completed.", "green")
             return True
