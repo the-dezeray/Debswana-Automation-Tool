@@ -29,7 +29,10 @@ class AppLogic:
             self.apps_json_path = os.path.abspath(apps_json_path)
             
         self.apps: List[Dict[str, Any]] = []
-        self.installed_apps_cache = None
+        self.installed_apps_cache = []
+        self.installed_services_cache = set()
+        self.start_apps_cache = []
+        self.app_status_cache = {}
         self.load_apps()
 
     def load_apps(self):
@@ -51,9 +54,12 @@ class AppLogic:
             print(f"Error saving apps.json: {e}")
 
     def refresh_installed_apps_cache(self):
-        """Fetches all installed apps from registry once to speed up checks"""
+        """Fetches Windows app status once so UI rendering stays fast."""
+        installed_apps = []
+        installed_services = set()
+        start_apps = []
+
         try:
-            # More robust PowerShell command with error handling for each path
             ps_cmd = (
                 "$paths = @("
                 "'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*', "
@@ -68,10 +74,54 @@ class AppLogic:
                                            stderr=subprocess.STDOUT, 
                                            universal_newlines=True,
                                            creationflags=subprocess.CREATE_NO_WINDOW)
-            self.installed_apps_cache = [line.strip() for line in output.splitlines() if line.strip()]
+            installed_apps = [line.strip().lower() for line in output.splitlines() if line.strip()]
         except Exception as e:
             print(f"Error caching installed apps: {e}")
-            self.installed_apps_cache = []
+
+        service_names = sorted({
+            app.get("checkService", "").strip()
+            for app in self.apps
+            if app.get("checkType") == "Service" and app.get("checkService")
+        })
+        if service_names:
+            try:
+                quoted_services = ",".join(f"'{name}'" for name in service_names)
+                ps_cmd = (
+                    f"$names = @({quoted_services}); "
+                    "Get-Service -Name $names -ErrorAction SilentlyContinue | "
+                    "Select-Object -ExpandProperty Name"
+                )
+                output = subprocess.check_output(["powershell", "-Command", ps_cmd],
+                                               stderr=subprocess.STDOUT,
+                                               universal_newlines=True,
+                                               creationflags=subprocess.CREATE_NO_WINDOW)
+                installed_services = {line.strip().lower() for line in output.splitlines() if line.strip()}
+            except Exception as e:
+                print(f"Error caching installed services: {e}")
+
+        try:
+            output = subprocess.check_output(["powershell", "-Command", "Get-StartApps | Select-Object -ExpandProperty Name"],
+                                           stderr=subprocess.STDOUT,
+                                           universal_newlines=True,
+                                           creationflags=subprocess.CREATE_NO_WINDOW)
+            start_apps = [line.strip().lower() for line in output.splitlines() if line.strip()]
+        except Exception as e:
+            print(f"Error caching Start menu apps: {e}")
+
+        self.installed_apps_cache = installed_apps
+        self.installed_services_cache = installed_services
+        self.start_apps_cache = start_apps
+        self.app_status_cache = {
+            self._app_cache_key(app): self._calculate_app_installed(app)
+            for app in self.apps
+        }
+
+    def _app_cache_key(self, app: Dict[str, Any]) -> str:
+        return app.get("name", "").strip().lower()
+
+    def _contains_cached_name(self, names: List[str], needle: str) -> bool:
+        needle = needle.strip().lower()
+        return bool(needle) and any(needle in name for name in names)
 
     def get_categories(self) -> List[str]:
         categories = set()
@@ -189,6 +239,13 @@ class AppLogic:
             return False
 
     def is_app_installed(self, app: Dict[str, Any]) -> bool:
+        cache_key = self._app_cache_key(app)
+        if cache_key in self.app_status_cache:
+            return self.app_status_cache[cache_key]
+
+        return self._calculate_app_installed(app)
+
+    def _calculate_app_installed(self, app: Dict[str, Any]) -> bool:
         check_type = app.get("checkType")
         check_match = app.get("checkMatch")
         check_path = app.get("checkPath")
@@ -198,38 +255,24 @@ class AppLogic:
         try:
             # 1. Primary Check based on checkType
             if check_type == "Registry" and check_match:
-                if self.installed_apps_cache:
-                    for installed_name in self.installed_apps_cache:
-                        if check_match.lower() in installed_name.lower():
-                            return True
+                if self._contains_cached_name(self.installed_apps_cache, check_match):
+                    return True
             
             elif check_type == "File" and check_path:
                 if os.path.exists(check_path):
                     return True
             
             elif check_type == "Service" and check_service:
-                ps_cmd = f'Get-Service -Name "{check_service}" -ErrorAction SilentlyContinue'
-                # check_call returns 0 on success, raises exception on failure
-                subprocess.check_call(["powershell", "-Command", ps_cmd], 
-                                    stderr=subprocess.STDOUT, 
-                                    creationflags=subprocess.CREATE_NO_WINDOW)
-                return True
+                if check_service.lower() in self.installed_services_cache:
+                    return True
 
             # 2. Robust Fallback: Check Registry by App Name if not already found
-            if self.installed_apps_cache:
-                for installed_name in self.installed_apps_cache:
-                    if app_name.lower() in installed_name.lower():
-                        return True
+            if self._contains_cached_name(self.installed_apps_cache, app_name):
+                return True
 
-            # 3. Final Fallback: Check via Get-StartApps (Windows 10+)
-            if app_name:
-                ps_cmd = f'Get-StartApps -Name "*{app_name}*" -ErrorAction SilentlyContinue'
-                output = subprocess.check_output(["powershell", "-Command", ps_cmd], 
-                                               stderr=subprocess.STDOUT, 
-                                               universal_newlines=True,
-                                               creationflags=subprocess.CREATE_NO_WINDOW)
-                if output.strip():
-                    return True
+            # 3. Final Fallback: Check cached Start Menu apps (Windows 10+)
+            if self._contains_cached_name(self.start_apps_cache, app_name):
+                return True
 
         except Exception:
             pass
@@ -247,3 +290,25 @@ class AppLogic:
         }
         self.apps.append(new_app)
         self.save_apps()
+
+    def open_app_path(self, app: Dict[str, Any]):
+        """Opens the file or folder path associated with the app."""
+        path = app.get("path", "")
+        if not path:
+            return False
+        
+        # Remove wildcards if any (though usually for configs we won't have them)
+        clean_path = path.replace("*", "")
+        
+        try:
+            if os.path.exists(clean_path):
+                os.startfile(clean_path)
+                return True
+            else:
+                # If it's a network path that might not be mapped but accessible
+                # os.startfile usually handles UNC paths fine on Windows.
+                os.startfile(clean_path)
+                return True
+        except Exception as e:
+            print(f"Error opening path {clean_path}: {e}")
+            return False
