@@ -107,7 +107,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.status_label = ctk.CTkLabel(self.status_frame, text="Ready.", font=ctk.CTkFont(weight="bold"))
         self.status_label.grid(row=1, column=0, sticky="w")
 
-        self.update_wifi_status()
+        self.refresh_wifi_status()
         self.render_apps()
         # Initial refresh in background to keep UI responsive
         self.after(100, self.manual_refresh)
@@ -131,8 +131,14 @@ class DesireeSoftwareCenter(ctk.CTk):
         if hasattr(self, 'dashboard_frame'):
             self.render_apps()
 
-    def update_wifi_status(self):
+    def refresh_wifi_status(self):
+        threading.Thread(target=self._wifi_status_task, daemon=True).start()
+
+    def _wifi_status_task(self):
         status = self.logic.check_wifi()
+        self.after(0, lambda: self.update_wifi_status(status))
+
+    def update_wifi_status(self, status):
         if status["is_debs"]:
             self.wifi_status_label.configure(text=f"● DEBS WiFi Connected ({status['ssid']})", text_color="#90EE90")
         elif status["connected"]:
