@@ -130,6 +130,18 @@ class AppLogic:
                 categories.add(app["category"])
         return sorted(list(categories))
 
+    def is_server_reachable(self, server: str = "\\\\10.50.93.5") -> bool:
+        try:
+            subprocess.check_output(
+                ["net", "view", server],
+                stderr=subprocess.STDOUT,
+                timeout=4,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            return True
+        except Exception:
+            return False
+
     def check_wifi(self) -> Dict[str, Any]:
         try:
             output = subprocess.check_output(["netsh", "wlan", "show", "interfaces"], 
@@ -172,9 +184,9 @@ class AppLogic:
                 status_callback(msg, color)
 
         try:
-            update_status(f"Checking path for {name}...", "orange")
-            if not os.path.exists(path.replace("*", "")):
-                update_status(f"Cannot access: {path}", "red")
+            update_status(f"Checking network...", "orange")
+            if not self.is_server_reachable():
+                update_status("Server unreachable. Check your network connection.", "red")
                 return False
 
             if app_type == "copy-then-run":
@@ -230,11 +242,16 @@ class AppLogic:
 
                 proc = subprocess.Popen(cmd, cwd=working_dir if working_dir else None)
                 proc.wait()
+                if proc.returncode != 0:
+                    update_status(f"{name} - Installer exited with error (code {proc.returncode}).", "red")
+                    return False
 
             update_status(f"{name} - Installation completed.", "green")
             return True
 
         except Exception as e:
+            if dest_dir and os.path.exists(dest_dir):
+                shutil.rmtree(dest_dir, ignore_errors=True)
             update_status(f"Error installing {name}: {str(e)}", "red")
             return False
 
