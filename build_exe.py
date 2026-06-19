@@ -1,42 +1,38 @@
 import os
 import subprocess
-import sys
+from PIL import Image
+
+def make_ico():
+    src = os.path.join("assets", "debswana-mini-logo.png")
+    dst = os.path.join("assets", "debswana-mini-logo.ico")
+    img = Image.open(src).convert("RGBA")
+    img.save(dst, format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+    return dst
 
 def build():
-    # Application name
     app_name = "DesireeSoftwareCenter"
-    
-    # Files to include
-    # Format: "source;destination" for Windows (PyInstaller uses ; as separator on Windows)
-    # But since we're writing the script, we'll let PyInstaller handle it or use the platform separator
-    sep = os.pathsep
-    
-    # CustomTkinter usually needs its data files bundled
-    # We'll use the --collect-all flag which is simpler in newer PyInstaller versions
-    
+    icon = make_ico()
+
     cmd = [
         "pyinstaller",
         "--noconfirm",
         "--onefile",
         "--windowed",
         f"--name={app_name}",
-        "--icon=image.png",  # Set application icon
-        "--add-data=image.png:.",
-        "--add-data=assets;assets",  # Include all icon assets
+        f"--icon={icon}",
+        "--add-data=assets;assets",
         "--collect-all=customtkinter",
         "main.py"
     ]
-    
-    print(f"Running command: {' '.join(cmd)}")
-    
+
+    print(f"Running: {' '.join(cmd)}")
     try:
         subprocess.check_call(cmd)
-        print("\nBuild completed successfully!")
-        print(f"The executable can be found in the 'dist' folder as {app_name}.exe")
+        print(f"\nBuild done! dist/{app_name}.exe")
     except subprocess.CalledProcessError as e:
-        print(f"\nBuild failed with error: {e}")
+        print(f"\nBuild failed: {e}")
     except FileNotFoundError:
-        print("\nError: PyInstaller not found. Please install it with 'pip install pyinstaller'.")
+        print("\nPyInstaller not found. Run: pip install pyinstaller")
 
 if __name__ == "__main__":
     build()
