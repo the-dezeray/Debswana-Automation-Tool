@@ -1,8 +1,9 @@
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import messagebox, filedialog
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageSequence
 import os
+import subprocess
 import threading
 from app_logic import AppLogic, resource_path
 
@@ -107,6 +108,13 @@ class DesireeSoftwareCenter(ctk.CTk):
         
         self.selected_category = "All"
         self.select_category("All")
+
+        # GIF display above logo
+        self._gif_frames = []
+        self._gif_job = None
+        self.gif_label = ctk.CTkLabel(self.sidebar_frame, text="")
+        self.gif_label.grid(row=7, column=0, padx=14, pady=(0, 4))
+        self.gif_label.grid_remove()  # hidden by default
 
         # Logo at bottom of sidebar
         logo_file = resource_path("image.png")
@@ -217,6 +225,58 @@ class DesireeSoftwareCenter(ctk.CTk):
 
     def icon(self, name):
         return self.icons.get(name)
+
+    def show_gif(self, gif_name):
+        """gif_name: 'file-transfer' | 'error-animation' | 'animated-download'"""
+        if self._gif_job:
+            self.after_cancel(self._gif_job)
+            self._gif_job = None
+        gif_path = resource_path(os.path.join("assets", f"{gif_name}.gif"))
+        if not os.path.exists(gif_path):
+            return
+        img = Image.open(gif_path)
+        self._gif_frames = []
+        for frame in ImageSequence.Iterator(img):
+            f = frame.copy().convert("RGBA")
+            f.thumbnail((140, 140))
+            self._gif_frames.append(ImageTk.PhotoImage(f))
+        if not self._gif_frames:
+            return
+        self.gif_label.grid()
+        self._animate_gif(0)
+
+    def _animate_gif(self, idx):
+        if not self._gif_frames:
+            return
+        self.gif_label.configure(image=self._gif_frames[idx])
+        self._gif_job = self.after(50, self._animate_gif, (idx + 1) % len(self._gif_frames))
+
+    def hide_gif(self):
+        if self._gif_job:
+            self.after_cancel(self._gif_job)
+            self._gif_job = None
+        self.gif_label.grid_remove()
+        self._gif_frames = []
+
+    def show_card_context_menu(self, event, app):
+        menu = tk.Menu(self, tearoff=0)
+        menu.add_command(label="📂  View Path", command=lambda: self.open_app_path_explorer(app))
+        menu.add_command(label="⬇  Install", command=lambda: self.install_thread(app))
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def open_app_path_explorer(self, app):
+        path = app.get("path", "").replace("*", "")
+        if not path:
+            return
+        # Open the folder containing the path, or the path itself if it's a dir
+        target = path if os.path.isdir(path) else os.path.dirname(path)
+        try:
+            subprocess.Popen(["explorer", target])
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not open path:\n{target}\n\n{e}")
 
     def manual_refresh(self):
         self.update_status("Refreshing application status...", "orange")
@@ -340,18 +400,32 @@ class DesireeSoftwareCenter(ctk.CTk):
         )
         install_btn.grid(row=0, column=1, rowspan=2, padx=10, pady=7)
 
+        # Right-click context menu on the whole card
+        for widget in (card, name_label, cat_label):
+            widget.bind("<Button-3>", lambda e, a=app: self.show_card_context_menu(e, a))
+
     def install_thread(self, app):
         threading.Thread(target=self.run_install, args=(app,), daemon=True).start()
 
     def run_install(self, app):
         self.progress_bar.set(0.2)
         self.install_all_btn.configure(state="disabled")
+        self.after(0, lambda: self.show_gif("file-transfer"))
         success = self.logic.install_app(app, status_callback=self.update_status)
         self.progress_bar.set(1.0)
         self.install_all_btn.configure(state="normal")
         if success:
+            self.after(0, lambda: self.show_gif("animated-download"))
+            self.after(2500, self.hide_gif)
             self.logic.refresh_installed_apps_cache()
-            self.render_apps() # Refresh to show "Installed"
+            self.render_apps()
+        else:
+            self.after(0, lambda: self.show_gif("error-animation"))
+            self.after(3000, self.hide_gif)
+            self.after(0, lambda: messagebox.showerror(
+                "Installation Failed",
+                f"Could not install {app.get('name', 'app')}.\n\nCheck your network connection or contact IT support."
+            ))
 
     def update_status(self, message, color="white"):
         # Ensure this runs on main thread
@@ -424,15 +498,30 @@ class DesireeSoftwareCenter(ctk.CTk):
     def run_bulk_install(self, apps):
         total = len(apps)
         self.install_all_btn.configure(state="disabled")
+        self.after(0, lambda: self.show_gif("file-transfer"))
+        failed = []
         for i, app in enumerate(apps):
             self.update_status(f"Installing ({i+1}/{total}): {app['name']}...", "orange")
             self.progress_bar.set((i + 1) / total)
-            self.logic.install_app(app, status_callback=self.update_status)
+            ok = self.logic.install_app(app, status_callback=self.update_status)
+            if not ok:
+                failed.append(app['name'])
         
         self.logic.refresh_installed_apps_cache()
         self.render_apps()
-        self.update_status(f"Installation complete! ({total} applications)", "green")
         self.install_all_btn.configure(state="normal")
+
+        if failed:
+            self.after(0, lambda: self.show_gif("error-animation"))
+            self.after(3000, self.hide_gif)
+            self.after(0, lambda: messagebox.showwarning(
+                "Some Installations Failed",
+                f"{len(failed)} app(s) failed to install:\n\n" + "\n".join(f"• {n}" for n in failed)
+            ))
+        else:
+            self.after(0, lambda: self.show_gif("animated-download"))
+            self.after(2500, self.hide_gif)
+            self.update_status(f"Installation complete! ({total} applications)", "green")
 
     def show_add_app_dialog(self):
         dialog = ctk.CTkToplevel(self)
