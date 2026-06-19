@@ -34,6 +34,39 @@ CATEGORY_COLORS = {
     "Uninstallers": "#f6f1f5",
 }
 
+CATEGORY_ICONS = {
+    "All": "grid",
+    "Standard": "standard",
+    "Mining": "mining",
+    "Oil Processing": "oil",
+    "IM": "im",
+    "Uninstallers": "uninstall",
+}
+
+ICON_FILES = {
+    "search": "search.png",
+    "download": "download.png",
+    "package_plus": "package-plus.png",
+    "check": "circle-check-big.png",
+    "refresh": "refresh-cw(1).png",
+    "plus": "plus.png",
+    "wifi": "wifi.png",
+    "wifi_off": "wifi-off.png",
+    "warning": "triangle-alert.png",
+    "grid": "grid-2x2.png",
+    "grid_active": "grid-2x2-active.png",
+    "standard": "badge-check.png",
+    "standard_active": "badge-check-active.png",
+    "mining": "pickaxe.png",
+    "mining_active": "pickaxe-active.png",
+    "oil": "droplets.png",
+    "oil_active": "droplets-active.png",
+    "im": "monitor-cog.png",
+    "im_active": "monitor-cog-active.png",
+    "uninstall": "trash-2.png",
+    "uninstall_active": "trash-2-active.png",
+}
+
 class DesireeSoftwareCenter(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -42,6 +75,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.title("Desiree Software Center")
         self.geometry("1000x680")
         self.configure(fg_color=PALETTE["app_bg"])
+        self.icons = self.load_icons()
 
         # Layout configuration
         self.grid_columnconfigure(1, weight=1)
@@ -63,8 +97,10 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.category_buttons = []
         categories = ["All", "Standard", "Mining", "Oil Processing", "IM", "Uninstallers"]
         for i, cat in enumerate(categories):
+            icon_name = CATEGORY_ICONS[cat]
             btn = ctk.CTkButton(self.sidebar_frame, text=cat, corner_radius=10, height=34, border_spacing=8, 
                                fg_color="transparent", text_color=PALETTE["text"], hover_color=PALETTE["sidebar_hover"],
+                               image=self.icon(icon_name), compound="left",
                                anchor="w", command=lambda c=cat: self.select_category(c))
             btn.grid(row=i, column=0, padx=8, pady=(8 if i == 0 else 2, 2), sticky="ew")
             self.category_buttons.append(btn)
@@ -107,6 +143,9 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.action_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         self.action_frame.grid(row=1, column=0, padx=14, pady=6, sticky="ew")
 
+        self.search_icon_label = ctk.CTkLabel(self.action_frame, image=self.icon("search"), text="")
+        self.search_icon_label.grid(row=0, column=0, padx=(0, 6), pady=6)
+
         self.search_entry = ctk.CTkEntry(
             self.action_frame,
             placeholder_text="Search applications...",
@@ -115,29 +154,35 @@ class DesireeSoftwareCenter(ctk.CTk):
             border_color=PALETTE["border"],
             text_color=PALETTE["text"],
         )
-        self.search_entry.grid(row=0, column=0, padx=(0, 12), pady=6)
+        self.search_entry.grid(row=0, column=1, padx=(0, 12), pady=6)
         self.search_entry.bind("<KeyRelease>", lambda e: self.render_apps())
 
         self.install_all_btn = ctk.CTkButton(self.action_frame, text="⚡ Install All Standard", fg_color="#4682B4", command=self.show_install_all_dialog)
-        self.install_all_btn.configure(fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"])
-        self.install_all_btn.grid(row=0, column=1, padx=6, pady=6)
+        self.install_all_btn.configure(text="Install All Standard", image=self.icon("package_plus"), compound="left", fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"])
+        self.install_all_btn.grid(row=0, column=2, padx=6, pady=6)
 
         self.add_app_btn = ctk.CTkButton(self.action_frame, text="+ Add App", fg_color="white", text_color="black", border_width=1, command=self.show_add_app_dialog)
         self.add_app_btn.configure(
+            text="Add App",
+            image=self.icon("plus"),
+            compound="left",
             fg_color=PALETTE["surface"],
             text_color=PALETTE["text"],
             hover_color=PALETTE["sidebar_hover"],
             border_color=PALETTE["border"],
         )
-        self.add_app_btn.grid(row=0, column=2, padx=6, pady=6)
+        self.add_app_btn.grid(row=0, column=3, padx=6, pady=6)
 
         self.refresh_btn = ctk.CTkButton(self.action_frame, text="↻ Refresh", width=100, fg_color="transparent", text_color=("gray10", "gray90"), border_width=1, command=self.manual_refresh)
         self.refresh_btn.configure(
+            text="Refresh",
+            image=self.icon("refresh"),
+            compound="left",
             text_color=PALETTE["text"],
             hover_color=PALETTE["sidebar_hover"],
             border_color=PALETTE["border"],
         )
-        self.refresh_btn.grid(row=0, column=3, padx=6, pady=6)
+        self.refresh_btn.grid(row=0, column=4, padx=6, pady=6)
 
         # Dashboard (Scrollable)
         self.dashboard_frame = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
@@ -160,6 +205,19 @@ class DesireeSoftwareCenter(ctk.CTk):
         # Initial refresh in background to keep UI responsive
         self.after(100, self.manual_refresh)
 
+    def load_icons(self):
+        icons = {}
+        for name, filename in ICON_FILES.items():
+            icon_path = resource_path(os.path.join("assets", filename))
+            if not os.path.exists(icon_path):
+                continue
+            image = Image.open(icon_path)
+            icons[name] = ctk.CTkImage(light_image=image, dark_image=image, size=(18, 18))
+        return icons
+
+    def icon(self, name):
+        return self.icons.get(name)
+
     def manual_refresh(self):
         self.update_status("Refreshing application status...", "orange")
         threading.Thread(target=self._refresh_task, daemon=True).start()
@@ -172,11 +230,14 @@ class DesireeSoftwareCenter(ctk.CTk):
     def select_category(self, category):
         self.selected_category = category
         for btn in self.category_buttons:
-            if btn.cget("text").strip() == category:
+            btn_category = btn.cget("text").strip()
+            icon_name = CATEGORY_ICONS[btn_category]
+            if btn_category == category:
                 btn.configure(
                     fg_color=PALETTE["primary"],
                     text_color="white",
                     hover_color=PALETTE["primary_hover"],
+                    image=self.icon(f"{icon_name}_active"),
                     font=ctk.CTkFont(weight="bold"),
                 )
             else:
@@ -184,6 +245,7 @@ class DesireeSoftwareCenter(ctk.CTk):
                     fg_color="transparent",
                     text_color=PALETTE["text"],
                     hover_color=PALETTE["sidebar_hover"],
+                    image=self.icon(icon_name),
                     font=ctk.CTkFont(weight="normal"),
                 )
         if hasattr(self, 'dashboard_frame'):
@@ -198,11 +260,14 @@ class DesireeSoftwareCenter(ctk.CTk):
 
     def update_wifi_status(self, status):
         if status["is_debs"]:
+            self.wifi_status_label.configure(image=self.icon("wifi"), compound="left")
             self.wifi_status_label.configure(text=f"● DEBS WiFi Connected ({status['ssid']})", text_color="#90EE90")
         elif status["connected"]:
+            self.wifi_status_label.configure(image=self.icon("warning"), compound="left")
             self.wifi_status_label.configure(text=f"● Connected to {status['ssid']} (Not DEBS)", text_color="#FFB6C1")
             self.show_wifi_warning(status['ssid'])
         else:
+            self.wifi_status_label.configure(image=self.icon("wifi_off"), compound="left")
             self.wifi_status_label.configure(text="● Not Connected", text_color="#FF6347")
             self.show_wifi_warning("No WiFi network detected")
 
@@ -260,11 +325,14 @@ class DesireeSoftwareCenter(ctk.CTk):
         is_installed = self.logic.is_app_installed(app)
         btn_text = "Installed" if is_installed else "Install"
         btn_color = PALETTE["installed"] if is_installed else PALETTE["primary"]
+        btn_icon = self.icon("check" if is_installed else "download")
 
         install_btn = ctk.CTkButton(
             card,
             text=btn_text,
-            width=74,
+            image=btn_icon,
+            compound="left",
+            width=98,
             height=28,
             fg_color=btn_color,
             hover_color=PALETTE["primary_hover"],
