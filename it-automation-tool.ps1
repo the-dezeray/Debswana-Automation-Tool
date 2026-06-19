@@ -40,15 +40,33 @@ function Invoke-BackgroundWork {
 
 $RefreshRegistryTask = {
     param($sync)
+
+    function Test-NameContains {
+        param(
+            [object[]]$Items,
+            [string]$Needle
+        )
+
+        if ([string]::IsNullOrWhiteSpace($Needle)) { return $false }
+
+        foreach ($item in $Items) {
+            if ($item.DisplayName -and $item.DisplayName.IndexOf($Needle, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                return $true
+            }
+        }
+
+        return $false
+    }
     
     # 1. Scan Registry (Fast)
-    $paths = @(
-        "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
-        "SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+    $registryPaths = @(
+        @{ Hive = [Microsoft.Win32.Registry]::LocalMachine; Path = "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" },
+        @{ Hive = [Microsoft.Win32.Registry]::LocalMachine; Path = "SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" },
+        @{ Hive = [Microsoft.Win32.Registry]::CurrentUser; Path = "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" }
     )
     $registryApps = New-Object System.Collections.Generic.List[psobject]
-    foreach ($basePath in $paths) {
-        $regKey = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey($basePath)
+    foreach ($registryPath in $registryPaths) {
+        $regKey = $registryPath.Hive.OpenSubKey($registryPath.Path)
         if ($regKey) {
             foreach ($subKeyName in $regKey.GetSubKeyNames()) {
                 $subKey = $regKey.OpenSubKey($subKeyName)
@@ -65,18 +83,78 @@ $RefreshRegistryTask = {
     }
     $sync.InstalledCache = $registryApps
 
-    # 2. Update Status Map for all apps (Includes potentially slow file checks)
+    $startApps = @()
+    try {
+        $startApps = Get-StartApps -ErrorAction SilentlyContinue | Where-Object { $_.Name } | ForEach-Object {
+            [PSCustomObject]@{ DisplayName = $_.Name }
+        }
+    } catch {
+        $startApps = @()
+    }
+
+    # Get services in bulk like Python does (more efficient)
+    $installedServices = @{}
+    $serviceNames = @()
+    foreach ($app in $sync.AllApps) {
+        if ($app.checkType -eq "Service" -and $app.checkService) {
+            $serviceNames += $app.checkService.Trim()
+        }
+    }
+    
+    if ($serviceNames.Count -gt 0) {
+        $uniqueServices = $serviceNames | Sort-Object -Unique
+        try {
+            $installedServicesRaw = Get-Service -Name $uniqueServices -ErrorAction SilentlyContinue
+            foreach ($service in $installedServicesRaw) {
+                $installedServices[$service.Name.ToLower()] = $true
+            }
+        } catch {
+            # Ignore service check errors
+        }
+    }
+
+    # 2. Update Status Map for all apps (Matches Python logic exactly)
     foreach ($app in $sync.AllApps) {
         $isInstalled = $false
         $name = $app.name
+        $checkType = $app.checkType
+        $checkMatch = $app.checkMatch
+        $checkPath = $app.checkPath
+        $checkService = $app.checkService
         
-        # Check Registry
-        $found = $registryApps | Where-Object { $_.DisplayName -like "*$name*" }
-        if ($found) { $isInstalled = $true }
-        
-        # Check File (Background thread so it's okay if it hangs/waits)
-        if (-not $isInstalled -and $app.checkType -eq "File" -and $app.checkPath) {
-            if ([System.IO.File]::Exists($app.checkPath)) { $isInstalled = $true }
+        try {
+            # 1. Primary Check based on checkType (matches Python)
+            if ($checkType -eq "Registry" -and $checkMatch) {
+                $isInstalled = Test-NameContains -Items $registryApps -Needle $checkMatch
+            }
+            elseif ($checkType -eq "File" -and $checkPath) {
+                if ([System.IO.File]::Exists($checkPath)) {
+                    $isInstalled = $true
+                }
+            }
+            elseif ($checkType -eq "Service" -and $checkService) {
+                if ($checkService -and $installedServices.ContainsKey($checkService.ToLower())) {
+                    $isInstalled = $true
+                }
+            }
+
+            # 2. Robust Fallback: Check Registry by App Name if not already found (matches Python)
+            if (-not $isInstalled) {
+                $isInstalled = Test-NameContains -Items $registryApps -Needle $name
+            }
+
+            # 3. Final Fallback: Check cached Start Menu apps (Windows 10+) (matches Python)
+            if (-not $isInstalled) {
+                $isInstalled = Test-NameContains -Items $startApps -Needle $name
+            }
+
+            # 4. Additional fallback: Check checkMatch in startApps too
+            if (-not $isInstalled -and $checkMatch) {
+                $isInstalled = Test-NameContains -Items $startApps -Needle $checkMatch
+            }
+        } catch {
+            # If any error occurs, assume not installed
+            $isInstalled = $false
         }
         
         $sync.AppStatusMap[$name] = $isInstalled
@@ -84,14 +162,13 @@ $RefreshRegistryTask = {
 
     # 3. Trigger UI update
     $sync.Window.Dispatcher.Invoke({
-        # Find the function in the main scope (we can't call it, so we repeat logic or set a flag)
         $statusText = $sync.Window.FindName("StatusText")
-        $statusText.Text = "Status refreshed."
+        $installedCount = ($sync.AppStatusMap.Values | Where-Object { $_ -eq $true }).Count
+        $totalCount = $sync.AppStatusMap.Count
+        $statusText.Text = "Status refreshed. Found $($registryApps.Count) registry apps, $($startApps.Count) start apps. $installedCount/$totalCount apps detected."
         
-        # We'll use a trick: simulate a search box change to trigger the UI update function
-        # Or just find the SearchBox and update it.
+        # Trigger UI refresh
         $sb = $sync.Window.FindName("SearchBox")
-        # Trigger TextChanged
         $temp = $sb.Text
         $sb.Text = $temp + " "
         $sb.Text = $temp
@@ -178,7 +255,9 @@ $InstallAppTask = {
         Update-Status -Msg "Installation completed: $Name" -Color "Green" -Progress 100
         
         # Trigger refresh
-        Invoke-BackgroundWork -ScriptBlock $RefreshRegistryTask -ArgumentList @{ sync = $sync }
+        $sync.Window.Dispatcher.Invoke({
+            Invoke-BackgroundWork -ScriptBlock $RefreshRegistryTask -ArgumentList @{ sync = $sync }
+        })
         return $true
     } catch {
         Update-Status -Msg "Error: $($_.Exception.Message)" -Color "Red" -Progress 0
@@ -272,9 +351,9 @@ $BulkInstallTask = {
 
     Update-Status -Msg "Bulk installation complete." -Color "Green" -Progress 100
     # Trigger refresh
-    # We can't use Invoke-BackgroundWork here easily without passing the Pool, 
-    # so we just repeat the registry scan logic or just let the user refresh manually.
-    # Actually, we can just update the status map for these apps.
+    $sync.Window.Dispatcher.Invoke({
+        Invoke-BackgroundWork -ScriptBlock $RefreshRegistryTask -ArgumentList @{ sync = $sync }
+    })
 }
 
 # ── XAML Definition ──────────────────────────────────────────
@@ -523,7 +602,7 @@ $sync.Window.Add_Loaded({
     $timer.Add_Tick({
         $timer.Stop()
         if ($sync.WifiStatus -and -not $sync.WifiStatus.IsDebs) { Show-WifiWarning }
-    })
+    }.GetNewClosure())
     $timer.Start()
 })
 
