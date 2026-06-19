@@ -20,7 +20,9 @@ def build():
         "--onefile",
         "--windowed",
         f"--name={app_name}",
+        "--icon=image.png",  # Set application icon
         "--add-data=image.png:.",
+        "--add-data=assets;assets",  # Include all icon assets
         "--collect-all=customtkinter",
         "main.py"
     ]
