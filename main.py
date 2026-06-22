@@ -85,8 +85,132 @@ class DesireeSoftwareCenter(ctk.CTk):
         self._build_main()
         self._bind_shortcuts()
 
-        self.refresh_wifi_status()
-        self.render_apps()
+        # Show connection check before loading apps
+        self.after(100, self._show_connection_check)
+
+    # ── Startup connection check ───────────────────────────────────────────
+    def _show_connection_check(self):
+        self._conn_dlg = ctk.CTkToplevel(self)
+        self._conn_dlg.title("Checking Connection")
+        self._conn_dlg.geometry("380x320")
+        self._conn_dlg.resizable(False, False)
+        self._conn_dlg.grab_set()
+        self._conn_dlg.protocol("WM_DELETE_WINDOW", lambda: None)  # block close
+
+        # Center on parent
+        self._conn_dlg.transient(self)
+
+        self._conn_gif_frames = []
+        self._conn_gif_job = None
+
+        # Wifi animation
+        gif_path = resource_path(os.path.join("assets", "wifi-animation.gif"))
+        self._conn_gif_label = ctk.CTkLabel(self._conn_dlg, text="")
+        self._conn_gif_label.pack(pady=(18, 6))
+        if os.path.exists(gif_path):
+            img = Image.open(gif_path)
+            for frame in ImageSequence.Iterator(img):
+                f = frame.copy().convert("RGBA")
+                f.thumbnail((120, 120))
+                self._conn_gif_frames.append(ImageTk.PhotoImage(f))
+            self._conn_animate(0)
+
+        self._conn_status = ctk.CTkLabel(self._conn_dlg, text="Checking network...",
+                                          font=ctk.CTkFont(size=13, weight="bold"),
+                                          text_color=PALETTE["warning"])
+        self._conn_status.pack(pady=6)
+
+        self._conn_detail = ctk.CTkLabel(self._conn_dlg, text="",
+                                          font=ctk.CTkFont(size=11), text_color=PALETTE["muted"],
+                                          wraplength=320)
+        self._conn_detail.pack(pady=2)
+
+        btn_row = ctk.CTkFrame(self._conn_dlg, fg_color="transparent")
+        btn_row.pack(pady=14)
+
+        self._conn_retry_btn = ctk.CTkButton(btn_row, text="Retry",
+                                              fg_color=PALETTE["primary"],
+                                              hover_color=PALETTE["primary_hover"],
+                                              state="disabled",
+                                              command=self._retry_connection)
+        self._conn_retry_btn.grid(row=0, column=0, padx=6)
+
+        self._conn_explore_btn = ctk.CTkButton(btn_row, text="Open \\\\10.50.93.5 in Explorer",
+                                                fg_color=PALETTE["surface"],
+                                                text_color=PALETTE["text"],
+                                                border_width=1, border_color=PALETTE["border"],
+                                                hover_color=PALETTE["sidebar_hover"],
+                                                state="disabled",
+                                                command=self._open_explorer_unc)
+        self._conn_explore_btn.grid(row=0, column=1, padx=6)
+
+        # Start check in background
+        threading.Thread(target=self._do_connection_check, daemon=True).start()
+
+    def _conn_animate(self, idx):
+        if not self._conn_gif_frames:
+            return
+        self._conn_gif_label.configure(image=self._conn_gif_frames[idx])
+        self._conn_gif_job = self._conn_dlg.after(
+            50, self._conn_animate, (idx + 1) % len(self._conn_gif_frames))
+
+    def _do_connection_check(self):
+        status = self.logic.check_connection()
+        self.after(0, lambda: self._handle_connection_result(status))
+
+    def _handle_connection_result(self, status):
+        if status["is_debs"] and status["server_ok"]:
+            # All good — dismiss and load
+            self._dismiss_conn_dlg()
+            self._post_connection_ready(status)
+        else:
+            # Show problem and enable retry
+            if not status["connected"]:
+                msg = "No WiFi connection detected."
+                detail = "Please connect to the DEBS corporate WiFi network."
+            elif not status["is_debs"]:
+                msg = f"Connected to '{status['ssid']}' — not DEBS WiFi."
+                detail = "Please switch to the Debswana corporate WiFi (DEBS) network."
+            else:
+                msg = "DEBS WiFi connected but server unreachable."
+                detail = (f"Cannot reach \\\\10.50.93.5.\n"
+                          "Try opening the server in Explorer to authenticate, then retry.")
+            self._conn_status.configure(text=msg, text_color=PALETTE["danger"])
+            self._conn_detail.configure(text=detail)
+            self._conn_retry_btn.configure(state="normal")
+            self._conn_explore_btn.configure(state="normal")
+
+    def _retry_connection(self):
+        self._conn_status.configure(text="Checking network...", text_color=PALETTE["warning"])
+        self._conn_detail.configure(text="")
+        self._conn_retry_btn.configure(state="disabled")
+        self._conn_explore_btn.configure(state="disabled")
+        threading.Thread(target=self._do_connection_check, daemon=True).start()
+
+    def _open_explorer_unc(self):
+        self.logic.open_server_in_explorer()
+
+    def _dismiss_conn_dlg(self):
+        if self._conn_gif_job:
+            try:
+                self._conn_dlg.after_cancel(self._conn_gif_job)
+            except Exception:
+                pass
+        self._conn_gif_frames = []
+        try:
+            self._conn_dlg.grab_release()
+            self._conn_dlg.destroy()
+        except Exception:
+            pass
+
+    def _post_connection_ready(self, status):
+        """Called after successful connection check — load apps and set up UI."""
+        self.update_wifi_status(status)
+        threading.Thread(target=self._load_and_render, daemon=True).start()
+
+    def _load_and_render(self):
+        self.logic.load_apps()
+        self.after(0, self.render_apps)
 
     # ── Icons ──────────────────────────────────────────────────────────────
     def _load_icons(self):
@@ -305,23 +429,20 @@ class DesireeSoftwareCenter(ctk.CTk):
             self._selected_index = -1
             self.render_apps()
 
-    # ── WiFi ───────────────────────────────────────────────────────────────
-    def refresh_wifi_status(self):
-        threading.Thread(target=lambda: self.after(
-            0, lambda: self.update_wifi_status(self.logic.check_wifi())), daemon=True).start()
-
+    # ── WiFi header label ──────────────────────────────────────────────────
     def update_wifi_status(self, status):
-        if status["is_debs"]:
+        if status.get("is_debs") and status.get("server_ok"):
             self.wifi_status_label.configure(
                 image=self.icon("wifi"), compound="left",
-                text=f"● DEBS WiFi Connected ({status['ssid']})", text_color="#90EE90")
-        elif status["connected"]:
+                text=f"● DEBS Connected ({status['ssid']})", text_color="#90EE90")
+        elif status.get("is_debs"):
             self.wifi_status_label.configure(
                 image=self.icon("warning"), compound="left",
-                text=f"● Connected to {status['ssid']} (Not DEBS)", text_color="#FFB6C1")
-            messagebox.showwarning("Corporate WiFi Required",
-                                   f"You are connected to: {status['ssid']}\n\n"
-                                   "Debswana network paths will not be accessible.")
+                text=f"● DEBS WiFi — server unreachable", text_color="#FFB6C1")
+        elif status.get("connected"):
+            self.wifi_status_label.configure(
+                image=self.icon("warning"), compound="left",
+                text=f"● {status['ssid']} (Not DEBS)", text_color="#FFB6C1")
         else:
             self.wifi_status_label.configure(
                 image=self.icon("wifi_off"), compound="left",
