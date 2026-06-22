@@ -68,18 +68,13 @@ class AppLogic:
     def check_wifi(self) -> Dict[str, Any]:
         try:
             output = subprocess.check_output(
-                ["netsh", "wlan", "show", "interfaces"],
+                ["powershell", "-NoProfile", "-Command", "(Get-NetConnectionProfile).Name"],
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
                 creationflags=subprocess.CREATE_NO_WINDOW
-            )
-            ssid = None
-            for line in output.split("\n"):
-                if "SSID" in line and ":" in line and "BSSID" not in line:
-                    ssid = line.split(":", 1)[1].strip()
-                    break
-            if ssid:
-                return {"connected": True, "ssid": ssid, "is_debs": "debs" in ssid.lower()}
+            ).strip()
+            if output:
+                return {"connected": True, "ssid": output, "is_debs": output.strip() == "debs.debswana.bw"}
         except Exception:
             pass
         return {"connected": False, "ssid": None, "is_debs": False}

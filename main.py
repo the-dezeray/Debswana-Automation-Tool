@@ -95,7 +95,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         self._conn_dlg.geometry("380x320")
         self._conn_dlg.resizable(False, False)
         self._conn_dlg.grab_set()
-        self._conn_dlg.protocol("WM_DELETE_WINDOW", lambda: None)  # block close
+        self._conn_dlg.protocol("WM_DELETE_WINDOW", lambda: None)  # block closing just the dialog
+        self.protocol("WM_DELETE_WINDOW", self._on_close)  # allow closing the whole app
 
         # Center on parent
         self._conn_dlg.transient(self)
@@ -231,7 +232,7 @@ class DesireeSoftwareCenter(ctk.CTk):
                                           fg_color=PALETTE["surface"],
                                           border_width=1, border_color=PALETTE["border"])
         self.sidebar_frame.grid(row=0, column=0, padx=(10, 0), pady=10, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(7, weight=1)
+        self.sidebar_frame.grid_rowconfigure(8, weight=1)
 
         self.category_buttons = []
         categories = ["All", "Standard", "Mining", "Oil Processing", "IM", "Uninstallers"]
@@ -249,11 +250,49 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.selected_category = "All"
         self.select_category("All")
 
+        # Separator
+        ctk.CTkFrame(self.sidebar_frame, height=1, fg_color=PALETTE["border"]).grid(
+            row=6, column=0, padx=12, pady=8, sticky="ew")
+
+        # Proxy toggle
+        self._proxy_enabled = None
+        self.proxy_btn = ctk.CTkButton(
+            self.sidebar_frame, text="⚙ Proxy: …", height=30, corner_radius=8,
+            fg_color=PALETTE["surface"], text_color=PALETTE["text"],
+            hover_color=PALETTE["sidebar_hover"],
+            border_width=1, border_color=PALETTE["border"],
+            anchor="w", command=self._toggle_proxy)
+        self.proxy_btn.grid(row=7, column=0, padx=8, pady=(0, 4), sticky="ew")
+        threading.Thread(target=self._refresh_proxy_label, daemon=True).start()
+
+        # About
+        ctk.CTkButton(
+            self.sidebar_frame, text="ℹ About", height=30, corner_radius=8,
+            fg_color=PALETTE["surface"], text_color=PALETTE["text"],
+            hover_color=PALETTE["sidebar_hover"],
+            border_width=1, border_color=PALETTE["border"],
+            anchor="w", command=self._open_about
+        ).grid(row=8, column=0, padx=8, pady=(0, 8), sticky="ew")
+
+        # Shortcuts hint (compact)
+        hints_frame = ctk.CTkFrame(self.sidebar_frame, fg_color=PALETTE["surface_alt"],
+                                    corner_radius=8, border_width=1, border_color=PALETTE["border"])
+        hints_frame.grid(row=9, column=0, padx=8, pady=(0, 6), sticky="ew")
+        for r, (key, desc) in enumerate([
+            ("Ctrl+F", "Search"), ("Ctrl+A", "Add App"),
+            ("↑↓ / Enter", "Navigate"), ("Ctrl+P", "Proxy"),
+            ("Ctrl+W", "Close"),
+        ]):
+            ctk.CTkLabel(hints_frame, text=key, font=ctk.CTkFont(size=10, weight="bold"),
+                         text_color=PALETTE["primary"]).grid(row=r, column=0, padx=(8, 4), pady=1, sticky="w")
+            ctk.CTkLabel(hints_frame, text=desc, font=ctk.CTkFont(size=10),
+                         text_color=PALETTE["muted"]).grid(row=r, column=1, padx=(0, 8), pady=1, sticky="w")
+
         # GIF slot
         self._gif_frames = []
         self._gif_job = None
         self.gif_label = ctk.CTkLabel(self.sidebar_frame, text="")
-        self.gif_label.grid(row=7, column=0, padx=14, pady=(0, 4))
+        self.gif_label.grid(row=10, column=0, padx=14, pady=(0, 4))
         self.gif_label.grid_remove()
 
         # Logo
@@ -265,7 +304,7 @@ class DesireeSoftwareCenter(ctk.CTk):
                 self.sidebar_logo = ctk.CTkImage(light_image=logo_img, dark_image=logo_img,
                                                   size=(140, int(140 * h / w)))
                 ctk.CTkLabel(self.sidebar_frame, image=self.sidebar_logo, text="").grid(
-                    row=8, column=0, padx=14, pady=14)
+                    row=11, column=0, padx=14, pady=14)
             except Exception as e:
                 print(f"Error loading logo: {e}")
 
@@ -274,7 +313,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.main_frame = ctk.CTkFrame(self, corner_radius=18, fg_color=PALETTE["surface_alt"])
         self.main_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
         self.main_frame.grid_columnconfigure(0, weight=1)
-        self.main_frame.grid_rowconfigure(3, weight=1)
+        self.main_frame.grid_rowconfigure(2, weight=1)
 
         # Header
         hdr = ctk.CTkFrame(self.main_frame, height=72, corner_radius=16, fg_color=PALETTE["primary"])
@@ -286,31 +325,9 @@ class DesireeSoftwareCenter(ctk.CTk):
                                                text_color="white", font=ctk.CTkFont(weight="bold"))
         self.wifi_status_label.grid(row=0, column=1, padx=14, pady=14, sticky="e")
 
-        # Shortcuts hint bar
-        shortcuts_bar = ctk.CTkFrame(self.main_frame, fg_color=PALETTE["surface"], corner_radius=6,
-                                      border_width=1, border_color=PALETTE["border"])
-        shortcuts_bar.grid(row=1, column=0, padx=8, pady=(0, 4), sticky="ew")
-        hints = [
-            ("Ctrl+F", "Search"),
-            ("Ctrl+A", "Add App"),
-            ("Ctrl+W", "Close"),
-            ("↑↓", "Navigate"),
-            ("Enter", "Install selected"),
-            ("Ctrl+P", "Toggle Proxy"),
-            ("Ctrl+I", "About / System Info"),
-        ]
-        for col, (key, desc) in enumerate(hints):
-            ctk.CTkLabel(shortcuts_bar,
-                         text=f"  {key}  ", font=ctk.CTkFont(size=11, weight="bold"),
-                         fg_color=PALETTE["primary"], text_color="white",
-                         corner_radius=4).grid(row=0, column=col * 2, padx=(8, 2), pady=4)
-            ctk.CTkLabel(shortcuts_bar,
-                         text=desc, font=ctk.CTkFont(size=11),
-                         text_color=PALETTE["muted"]).grid(row=0, column=col * 2 + 1, padx=(0, 12), pady=4)
-
         # Actions row
         action = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        action.grid(row=2, column=0, padx=14, pady=4, sticky="ew")
+        action.grid(row=1, column=0, padx=14, pady=4, sticky="ew")
 
         ctk.CTkLabel(action, image=self.icon("search"), text="").grid(row=0, column=0, padx=(0, 6))
         self.search_entry = ctk.CTkEntry(action, placeholder_text="Search applications...",
@@ -332,45 +349,34 @@ class DesireeSoftwareCenter(ctk.CTk):
                                           command=self.show_add_app_dialog)
         self.add_app_btn.grid(row=0, column=3, padx=6, pady=6)
 
-        # Proxy toggle
-        self._proxy_enabled = None
-        self.proxy_btn = ctk.CTkButton(
-            action, text="⚙ Proxy: …", width=130,
-            fg_color=PALETTE["surface"], text_color=PALETTE["text"],
-            hover_color=PALETTE["sidebar_hover"],
-            border_width=1, border_color=PALETTE["border"],
-            command=self._toggle_proxy)
-        self.proxy_btn.grid(row=0, column=4, padx=6, pady=6)
-        threading.Thread(target=self._refresh_proxy_label, daemon=True).start()
-
-        # About / System Info
-        ctk.CTkButton(
-            action, text="ℹ About", width=80,
-            fg_color=PALETTE["surface"], text_color=PALETTE["text"],
-            hover_color=PALETTE["sidebar_hover"],
-            border_width=1, border_color=PALETTE["border"],
-            command=self._open_about).grid(row=0, column=5, padx=6, pady=6)
-
         # Dashboard
         self.dashboard_frame = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.dashboard_frame.grid(row=3, column=0, padx=14, pady=6, sticky="nsew")
+        self.dashboard_frame.grid(row=2, column=0, padx=14, pady=6, sticky="nsew")
         self.dashboard_frame.grid_columnconfigure((0, 1), weight=1)
 
         # Status bar
         status_frame = ctk.CTkFrame(self.main_frame, height=42, corner_radius=0, fg_color="transparent")
-        status_frame.grid(row=4, column=0, padx=14, pady=(0, 6), sticky="ew")
+        status_frame.grid(row=3, column=0, padx=14, pady=(0, 6), sticky="ew")
         self.progress_bar = ctk.CTkProgressBar(status_frame, width=730)
         self.progress_bar.set(0)
         self.progress_bar.grid(row=0, column=0, pady=(0, 3))
         self.status_label = ctk.CTkLabel(status_frame, text="Ready.", font=ctk.CTkFont(weight="bold"))
         self.status_label.grid(row=1, column=0, sticky="w")
 
+    # ── App close ──────────────────────────────────────────────────────────
+    def _on_close(self):
+        try:
+            self._dismiss_conn_dlg()
+        except Exception:
+            pass
+        self.destroy()
+
     # ── Keyboard shortcuts ─────────────────────────────────────────────────
     def _bind_shortcuts(self):
         self.bind_all("<Control-f>", lambda e: self._focus_search())
         self.bind_all("<Control-F>", lambda e: self._focus_search())
-        self.bind_all("<Control-w>", lambda e: self.destroy())
-        self.bind_all("<Control-W>", lambda e: self.destroy())
+        self.bind_all("<Control-w>", lambda e: self._on_close())
+        self.bind_all("<Control-W>", lambda e: self._on_close())
         self.bind_all("<Control-a>", lambda e: self.show_add_app_dialog())
         self.bind_all("<Control-A>", lambda e: self.show_add_app_dialog())
         self.bind_all("<Control-p>", lambda e: self._toggle_proxy())
@@ -737,5 +743,13 @@ class DesireeSoftwareCenter(ctk.CTk):
 
 
 if __name__ == "__main__":
+    REQUIRE_ADMIN = False  # set to True to enable UAC elevation prompt
+
+    if REQUIRE_ADMIN:
+        import ctypes
+        if not ctypes.windll.shell32.IsUserAnAdmin():
+            ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+            sys.exit()
+
     app = DesireeSoftwareCenter()
     app.mainloop()
