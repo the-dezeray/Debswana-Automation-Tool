@@ -64,6 +64,10 @@ ICON_FILES = {
     "im_active": "monitor-cog-active.png",
     "uninstall": "trash-2.png",
     "uninstall_active": "trash-2-active.png",
+    "wrench": "wrench.png",
+    "info": "info.png",
+    "computer": "computer.png",
+    "folder": "folder.png",
 }
 
 
@@ -71,8 +75,9 @@ class DesireeSoftwareCenter(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.logic = AppLogic()
-        self.title("Desiree Software Center")
+        self.title("Debswana Software Kit")
         self.geometry("1000x680")
+        self.after(0, lambda: self.state("zoomed"))
         self.configure(fg_color=PALETTE["app_bg"])
         self.icons = self._load_icons()
         self._selected_index = -1
@@ -256,23 +261,26 @@ class DesireeSoftwareCenter(ctk.CTk):
         ctk.CTkFrame(self.sidebar_frame, height=1, fg_color=PALETTE["border"]).grid(
             row=6, column=0, padx=12, pady=8, sticky="ew")
 
-        # Proxy toggle
+        # Quick Tools
         self._proxy_enabled = None
-        self.proxy_btn = ctk.CTkButton(
-            self.sidebar_frame, text="⚙ Proxy: …", height=30, corner_radius=8,
+        self.proxy_btn = None  # managed inside quick tools popup
+        ctk.CTkButton(
+            self.sidebar_frame, text=" Quick Tools", height=30, corner_radius=8,
             fg_color=PALETTE["surface"], text_color=PALETTE["text"],
             hover_color=PALETTE["sidebar_hover"],
             border_width=1, border_color=PALETTE["border"],
-            anchor="w", command=self._toggle_proxy)
-        self.proxy_btn.grid(row=7, column=0, padx=8, pady=(0, 4), sticky="ew")
-        threading.Thread(target=self._refresh_proxy_label, daemon=True).start()
+            image=self.icon("wrench"), compound="left",
+            anchor="w", command=self._open_quick_tools
+        ).grid(row=7, column=0, padx=8, pady=(0, 4), sticky="ew")
+        threading.Thread(target=self._refresh_proxy_status, daemon=True).start()
 
         # About
         ctk.CTkButton(
-            self.sidebar_frame, text="ℹ About", height=30, corner_radius=8,
+            self.sidebar_frame, text=" About", height=30, corner_radius=8,
             fg_color=PALETTE["surface"], text_color=PALETTE["text"],
             hover_color=PALETTE["sidebar_hover"],
             border_width=1, border_color=PALETTE["border"],
+            image=self.icon("info"), compound="left",
             anchor="w", command=self._open_about
         ).grid(row=8, column=0, padx=8, pady=(0, 8), sticky="ew")
 
@@ -282,7 +290,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         hints_frame.grid(row=9, column=0, padx=8, pady=(0, 6), sticky="ew")
         for r, (key, desc) in enumerate([
             ("Ctrl+F", "Search"), ("Ctrl+A", "Add App"),
-            ("↑↓ / Enter", "Navigate"), ("Ctrl+P", "Proxy"),
+            ("↑↓ / Enter", "Navigate"), ("Ctrl+I", "About"),
+            ("Ctrl+R", "Rename PC"), ("Ctrl+L", "Installed Apps"),
             ("Ctrl+W", "Close"),
         ]):
             ctk.CTkLabel(hints_frame, text=key, font=ctk.CTkFont(size=10, weight="bold"),
@@ -321,7 +330,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         hdr = ctk.CTkFrame(self.main_frame, height=72, corner_radius=16, fg_color=PALETTE["primary"])
         hdr.grid(row=0, column=0, padx=8, pady=8, sticky="ew")
         hdr.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(hdr, text="Desiree Software Center", text_color="white",
+        ctk.CTkLabel(hdr, text="Debswana Software Kit", text_color="white",
                      font=ctk.CTkFont(size=22, weight="bold")).grid(row=0, column=0, padx=14, pady=14, sticky="w")
         self.wifi_status_label = ctk.CTkLabel(hdr, text="Checking connection...",
                                                text_color="white", font=ctk.CTkFont(weight="bold"))
@@ -381,10 +390,12 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.bind_all("<Control-W>", lambda e: self._on_close())
         self.bind_all("<Control-a>", lambda e: self.show_add_app_dialog())
         self.bind_all("<Control-A>", lambda e: self.show_add_app_dialog())
-        self.bind_all("<Control-p>", lambda e: self._toggle_proxy())
-        self.bind_all("<Control-P>", lambda e: self._toggle_proxy())
         self.bind_all("<Control-i>", lambda e: self._open_about())
         self.bind_all("<Control-I>", lambda e: self._open_about())
+        self.bind_all("<Control-r>", lambda e: subprocess.Popen("ms-settings:about", shell=True))
+        self.bind_all("<Control-R>", lambda e: subprocess.Popen("ms-settings:about", shell=True))
+        self.bind_all("<Control-l>", lambda e: subprocess.Popen("appwiz.cpl", shell=True))
+        self.bind_all("<Control-L>", lambda e: subprocess.Popen("appwiz.cpl", shell=True))
         self.bind_all("<Up>", lambda e: self._move_selection(-1))
         self.bind_all("<Down>", lambda e: self._move_selection(1))
         self.bind_all("<Return>", lambda e: self._install_selected())
@@ -564,8 +575,77 @@ class DesireeSoftwareCenter(ctk.CTk):
             self._selected_index = idx
             self.render_apps()
 
+        def on_right_click(e, a=app):
+            self._show_card_menu(e, a)
+
         for w in (card, name_lbl):
             w.bind("<Button-1>", on_click)
+            w.bind("<Button-3>", on_right_click)
+
+    # ── Card context menu ──────────────────────────────────────────────────
+    def _show_card_menu(self, event, app):
+        menu = tk.Menu(self, tearoff=0, bg=PALETTE["surface"], fg=PALETTE["text"],
+                       activebackground=PALETTE["sidebar_hover"], activeforeground=PALETTE["text"],
+                       relief="flat", bd=1)
+        menu.add_command(label="📂  Open Path", command=lambda: self._open_app_path(app))
+        menu.add_separator()
+        menu.add_command(label="✏  Edit", command=lambda: self._edit_app_dialog(app))
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def _open_app_path(self, app):
+        path = app.get("path", "")
+        folder = os.path.dirname(path)
+        if folder and os.path.exists(folder):
+            subprocess.Popen(f'explorer "{folder}"')
+        else:
+            messagebox.showwarning("Open Path", f"Path not accessible:\n{folder or path}")
+
+    def _edit_app_dialog(self, app):
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(f"Edit — {app.get('name', '')}")
+        dlg.geometry("460x280")
+        dlg.grab_set()
+
+        field_defs = [("Name:", "name"), ("Path:", "path"), ("Args:", "args")]
+        entries = []
+        for r, (lbl, key) in enumerate(field_defs):
+            ctk.CTkLabel(dlg, text=lbl).grid(row=r, column=0, padx=14, pady=7, sticky="e")
+            if key == "path":
+                frm = ctk.CTkFrame(dlg, fg_color="transparent")
+                frm.grid(row=r, column=1, padx=14, pady=7)
+                e = ctk.CTkEntry(frm, width=220)
+                e.insert(0, app.get(key, ""))
+                e.pack(side="left", padx=(0, 6))
+                def browse(entry=e):
+                    f = filedialog.askopenfilename()
+                    if f:
+                        entry.delete(0, "end")
+                        entry.insert(0, f)
+                ctk.CTkButton(frm, text="Browse", width=70, command=browse).pack(side="left")
+            else:
+                e = ctk.CTkEntry(dlg, width=300)
+                e.insert(0, app.get(key, ""))
+                e.grid(row=r, column=1, padx=14, pady=7)
+            entries.append(e)
+
+        ctk.CTkLabel(dlg, text="Category:").grid(row=3, column=0, padx=14, pady=7, sticky="e")
+        cat_combo = ctk.CTkComboBox(dlg, values=["Standard", "Mining", "Oil Processing", "IM", "Uninstallers"], width=300)
+        cat_combo.set(app.get("category", "Standard"))
+        cat_combo.grid(row=3, column=1, padx=14, pady=7)
+
+        def save():
+            app["name"] = entries[0].get()
+            app["path"] = entries[1].get()
+            app["args"] = entries[2].get()
+            app["category"] = cat_combo.get()
+            self.logic.save_apps()
+            self.render_apps()
+            dlg.destroy()
+
+        ctk.CTkButton(dlg, text="Save", command=save,
+                      fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"]).grid(
+                          row=4, column=0, columnspan=2, pady=12)
+        dlg.bind("<Return>", lambda e: save())
 
     # ── Install ────────────────────────────────────────────────────────────
     def install_thread(self, app):
@@ -697,7 +777,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         dlg.bind("<Return>", lambda e: save())
 
     # ── Proxy toggle ───────────────────────────────────────────────────────
-    def _refresh_proxy_label(self):
+    def _refresh_proxy_status(self):
         try:
             out = subprocess.check_output(
                 ["reg", "query",
@@ -713,16 +793,16 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.after(0, self._update_proxy_btn)
 
     def _update_proxy_btn(self):
+        btn = getattr(self, "qt_proxy_btn", None)
+        if btn is None:
+            return
         if self._proxy_enabled:
-            self.proxy_btn.configure(
-                text="⚙ Proxy: ON",
-                fg_color="#1f7a4d", text_color="white",
-                hover_color="#165c38", border_color="#1f7a4d")
+            btn.configure(text="⚙ Proxy: ON", fg_color="#1f7a4d",
+                          text_color="white", hover_color="#165c38", border_color="#1f7a4d")
         else:
-            self.proxy_btn.configure(
-                text="⚙ Proxy: OFF",
-                fg_color=PALETTE["surface"], text_color=PALETTE["text"],
-                hover_color=PALETTE["sidebar_hover"], border_color=PALETTE["border"])
+            btn.configure(text="⚙ Proxy: OFF", fg_color=PALETTE["surface"],
+                          text_color=PALETTE["text"], hover_color=PALETTE["sidebar_hover"],
+                          border_color=PALETTE["border"])
 
     def _toggle_proxy(self):
         threading.Thread(target=self._do_toggle_proxy, daemon=True).start()
@@ -756,9 +836,94 @@ class DesireeSoftwareCenter(ctk.CTk):
         except Exception as e:
             self.after(0, lambda: messagebox.showerror("Proxy Error", str(e)))
 
-    # ── About / System Info ────────────────────────────────────────────────
+    # ── About popup ────────────────────────────────────────────────────────
     def _open_about(self):
-        subprocess.Popen(["ms-settings:about"], shell=True)
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("About")
+        dlg.geometry("380x450")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        dlg.focus_force()
+
+        logo_file = resource_path("image.png")
+        if os.path.exists(logo_file):
+            try:
+                img = Image.open(logo_file)
+                logo = ctk.CTkImage(light_image=img, dark_image=img, size=(90, 90))
+                ctk.CTkLabel(dlg, image=logo, text="").pack(pady=(18, 4))
+            except Exception:
+                pass
+
+        ctk.CTkLabel(dlg, text="Debswana Software Kit",
+                     font=ctk.CTkFont(size=16, weight="bold"),
+                     text_color=PALETTE["primary"]).pack(pady=(0, 2))
+        ctk.CTkLabel(dlg, text="Made by Desiree Chingwaru & Odirile Mathepeo",
+                     font=ctk.CTkFont(size=11), text_color=PALETTE["muted"]).pack(pady=(0, 2))
+        ctk.CTkLabel(dlg, text="Debswana IT Department",
+                     font=ctk.CTkFont(size=11), text_color=PALETTE["muted"]).pack(pady=(0, 12))
+
+        sep = ctk.CTkFrame(dlg, height=1, fg_color=PALETTE["border"])
+        sep.pack(fill="x", padx=20, pady=(0, 10))
+
+        shortcuts = [
+            ("Ctrl+F", "Search"), ("Ctrl+A", "Add App"),
+            ("Ctrl+I", "About"), ("Ctrl+R", "Rename PC"),
+            ("Ctrl+L", "Installed Apps"), ("Ctrl+W", "Close"),
+            ("↑↓ / Enter", "Navigate"),
+        ]
+        grid = ctk.CTkFrame(dlg, fg_color="transparent")
+        grid.pack(padx=30, pady=(0, 16), fill="x")
+        for r, (key, desc) in enumerate(shortcuts):
+            ctk.CTkLabel(grid, text=key, font=ctk.CTkFont(size=11, weight="bold"),
+                         text_color=PALETTE["primary"]).grid(row=r, column=0, sticky="w", pady=2, padx=(0, 16))
+            ctk.CTkLabel(grid, text=desc, font=ctk.CTkFont(size=11),
+                         text_color=PALETTE["text"]).grid(row=r, column=1, sticky="w", pady=2)
+
+        ctk.CTkButton(dlg, text="Close", width=100,
+                      fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"],
+                      command=dlg.destroy).pack(pady=(0, 16))
+
+    # ── Quick Tools popup ──────────────────────────────────────────────────
+    def _open_quick_tools(self):
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Quick Tools")
+        dlg.geometry("280x200")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        dlg.focus_force()
+
+        ctk.CTkLabel(dlg, text="Quick Tools",
+                     font=ctk.CTkFont(size=14, weight="bold"),
+                     text_color=PALETTE["primary"]).pack(pady=(14, 8))
+
+        btn_cfg = dict(height=34, corner_radius=8, border_width=1,
+                       border_color=PALETTE["border"], anchor="w",
+                       fg_color=PALETTE["surface"], text_color=PALETTE["text"],
+                       hover_color=PALETTE["sidebar_hover"])
+
+        # Proxy button (live state)
+        proxy_label = "⚙ Proxy: ON" if self._proxy_enabled else "⚙ Proxy: OFF"
+        proxy_fg = "#1f7a4d" if self._proxy_enabled else PALETTE["surface"]
+        proxy_tc = "white" if self._proxy_enabled else PALETTE["text"]
+        proxy_hc = "#165c38" if self._proxy_enabled else PALETTE["sidebar_hover"]
+        proxy_bc = "#1f7a4d" if self._proxy_enabled else PALETTE["border"]
+
+        self.qt_proxy_btn = ctk.CTkButton(
+            dlg, text=proxy_label, fg_color=proxy_fg, text_color=proxy_tc,
+            hover_color=proxy_hc, border_color=proxy_bc,
+            height=34, corner_radius=8, border_width=1, anchor="w",
+            command=self._toggle_proxy)
+        self.qt_proxy_btn.pack(fill="x", padx=16, pady=(0, 4))
+
+        ctk.CTkButton(dlg, text=" Rename this PC  (Ctrl+R)",
+                      image=self.icon("computer"), compound="left",
+                      command=lambda: subprocess.Popen("ms-settings:about", shell=True),
+                      **btn_cfg).pack(fill="x", padx=16, pady=(0, 4))
+
+        ctk.CTkButton(dlg, text=" Installed Apps  (Ctrl+L)",
+                      image=self.icon("wrench"), compound="left",
+                      command=lambda: subprocess.Popen("appwiz.cpl", shell=True),
+                      **btn_cfg).pack(fill="x", padx=16, pady=(0, 4))
 
     # ── Status ─────────────────────────────────────────────────────────────
     def update_status(self, message, color="white"):
