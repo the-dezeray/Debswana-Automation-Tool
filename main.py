@@ -77,6 +77,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.icons = self._load_icons()
         self._selected_index = -1
         self._filtered_apps = []
+        self._rendered_keys = []   # list of id(app) for current cards
+        self._card_widgets = {}    # index -> card CTkFrame
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -485,22 +487,49 @@ class DesireeSoftwareCenter(ctk.CTk):
             self.after(0, self.render_apps)
             return
 
-        for w in self.dashboard_frame.winfo_children():
-            w.destroy()
-
         search = self.search_entry.get().lower()
         apps = self.logic.apps
-
         if self.selected_category != "All":
             apps = [a for a in apps if a.get("category") == self.selected_category]
         if search:
             apps = [a for a in apps if search in a.get("name", "").lower()
                     or search in a.get("category", "").lower()]
 
-        self._filtered_apps = apps
+        new_keys = [id(a) for a in apps]
 
-        for i, app in enumerate(apps):
-            self._create_app_card(app, i, selected=(i == self._selected_index))
+        if new_keys != self._rendered_keys:
+            # List changed — full rebuild
+            for w in self.dashboard_frame.winfo_children():
+                w.destroy()
+            self._card_widgets = {}
+            self._filtered_apps = apps
+            self._rendered_keys = new_keys
+            for i, app in enumerate(apps):
+                self._create_app_card(app, i, selected=(i == self._selected_index))
+        else:
+            # Only selection changed — recolor in place
+            self._filtered_apps = apps
+            prev_sel = getattr(self, "_prev_selected_index", -2)
+            for idx in {prev_sel, self._selected_index}:
+                card = self._card_widgets.get(idx)
+                if card is None:
+                    continue
+                selected = (idx == self._selected_index)
+                app = apps[idx]
+                cat = app.get("category", "")
+                bg = PALETTE["primary"] if selected else CATEGORY_COLORS.get(cat, PALETTE["surface"])
+                txt_color = "white" if selected else PALETTE["text"]
+                muted_color = "#c8d7e6" if selected else PALETTE["muted"]
+                bw = 2 if selected else 1
+                bc = PALETTE["primary"] if selected else PALETTE["border"]
+                card.configure(fg_color=bg, border_width=bw, border_color=bc)
+                children = card.winfo_children()
+                # name label, category label, install button
+                if len(children) >= 2:
+                    children[0].configure(text_color=txt_color)
+                    children[1].configure(text_color=muted_color)
+
+        self._prev_selected_index = self._selected_index
 
     def _create_app_card(self, app, index, selected=False):
         row, col = divmod(index, 2)
@@ -515,6 +544,7 @@ class DesireeSoftwareCenter(ctk.CTk):
                             fg_color=bg)
         card.grid(row=row, column=col, padx=6, pady=6, sticky="ew")
         card.grid_columnconfigure(0, weight=1)
+        self._card_widgets[index] = card
 
         name_lbl = ctk.CTkLabel(card, text=app.get("name", ""),
                                  font=ctk.CTkFont(size=13, weight="bold"), text_color=txt_color)
