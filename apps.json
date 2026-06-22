@@ -11,6 +11,15 @@
     "checkService": "CcmExec"
   },
   {
+    "name": "Microsoft Office 2024 Pro Plus",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\Standard 2026\\Office 2024 Pro plus\\setup.exe",
+    "args": "/configure download.xml",
+    "workingDir": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\Standard 2026\\Office 2024 Pro plus",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
     "name": "Dell Command Update",
     "path": "\\\\10.50.93.5\\g\\V.Soft\\Dell-Command-Update-Application_8DGG4_WIN_4.4.0_A00 (3).EXE",
     "args": "",
@@ -97,17 +106,6 @@
     "standard": true,
     "checkType": "Registry",
     "checkMatch": "SAPscript"
-  },
-  {
-    "name": "Microsoft Office 2024 Pro Plus",
-    "path": "\\\\10.50.93.5\\g\\Crowd\\New Office Offline Installer\\Office 2024 Pro plus\\*",
-    "args": "/configure download.xml",
-    "workingDir": "C:\\Office2024",
-    "category": "Standard",
-    "type": "copy-then-run",
-    "destDir": "C:\\Office2024",
-    "exeName": "setup.exe",
-    "standard": true
   },
   {
     "name": "TITUS Classification Client",
