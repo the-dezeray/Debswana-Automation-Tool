@@ -47,7 +47,7 @@ ICON_FILES = {
     "download": "download.png",
     "package_plus": "package-plus.png",
     "check": "circle-check-big.png",
-    "refresh": "refresh-cw(1).png",
+    "refresh": "refresh-cw.png",
     "plus": "plus.png",
     "wifi": "wifi.png",
     "wifi_off": "wifi-off.png",
@@ -102,8 +102,10 @@ class DesireeSoftwareCenter(ctk.CTk):
         self._conn_dlg.geometry("380x320")
         self._conn_dlg.resizable(False, False)
         self._conn_dlg.grab_set()
-        self._conn_dlg.protocol("WM_DELETE_WINDOW", lambda: None)  # block closing just the dialog
-        self.protocol("WM_DELETE_WINDOW", self._on_close)  # allow closing the whole app
+        # block closing just the dialog
+        self._conn_dlg.protocol("WM_DELETE_WINDOW", lambda: None)
+        # allow closing the whole app
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Center on parent
         self._conn_dlg.transient(self)
@@ -124,32 +126,33 @@ class DesireeSoftwareCenter(ctk.CTk):
             self._conn_animate(0)
 
         self._conn_status = ctk.CTkLabel(self._conn_dlg, text="Checking network...",
-                                          font=ctk.CTkFont(size=13, weight="bold"),
-                                          text_color=PALETTE["warning"])
+                                         font=ctk.CTkFont(
+                                             size=13, weight="bold"),
+                                         text_color=PALETTE["warning"])
         self._conn_status.pack(pady=6)
 
         self._conn_detail = ctk.CTkLabel(self._conn_dlg, text="",
-                                          font=ctk.CTkFont(size=11), text_color=PALETTE["muted"],
-                                          wraplength=320)
+                                         font=ctk.CTkFont(size=11), text_color=PALETTE["muted"],
+                                         wraplength=320)
         self._conn_detail.pack(pady=2)
 
         btn_row = ctk.CTkFrame(self._conn_dlg, fg_color="transparent")
         btn_row.pack(pady=14)
 
         self._conn_retry_btn = ctk.CTkButton(btn_row, text="Retry",
-                                              fg_color=PALETTE["primary"],
-                                              hover_color=PALETTE["primary_hover"],
-                                              state="disabled",
-                                              command=self._retry_connection)
+                                             fg_color=PALETTE["primary"],
+                                             hover_color=PALETTE["primary_hover"],
+                                             state="disabled",
+                                             command=self._retry_connection)
         self._conn_retry_btn.grid(row=0, column=0, padx=6)
 
         self._conn_explore_btn = ctk.CTkButton(btn_row, text="Open \\\\10.50.93.5 in Explorer",
-                                                fg_color=PALETTE["surface"],
-                                                text_color=PALETTE["text"],
-                                                border_width=1, border_color=PALETTE["border"],
-                                                hover_color=PALETTE["sidebar_hover"],
-                                                state="disabled",
-                                                command=self._open_explorer_unc)
+                                               fg_color=PALETTE["surface"],
+                                               text_color=PALETTE["text"],
+                                               border_width=1, border_color=PALETTE["border"],
+                                               hover_color=PALETTE["sidebar_hover"],
+                                               state="disabled",
+                                               command=self._open_explorer_unc)
         self._conn_explore_btn.grid(row=0, column=1, padx=6)
 
         # Start check in background
@@ -189,7 +192,8 @@ class DesireeSoftwareCenter(ctk.CTk):
             self._conn_explore_btn.configure(state="normal")
 
     def _retry_connection(self):
-        self._conn_status.configure(text="Checking network...", text_color=PALETTE["warning"])
+        self._conn_status.configure(
+            text="Checking network...", text_color=PALETTE["warning"])
         self._conn_detail.configure(text="")
         self._conn_retry_btn.configure(state="disabled")
         self._conn_explore_btn.configure(state="disabled")
@@ -227,7 +231,8 @@ class DesireeSoftwareCenter(ctk.CTk):
             p = resource_path(os.path.join("assets", filename))
             if os.path.exists(p):
                 img = Image.open(p)
-                icons[name] = ctk.CTkImage(light_image=img, dark_image=img, size=(18, 18))
+                icons[name] = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(18, 18))
         return icons
 
     def icon(self, name):
@@ -238,11 +243,13 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.sidebar_frame = ctk.CTkFrame(self, width=180, corner_radius=18,
                                           fg_color=PALETTE["surface"],
                                           border_width=1, border_color=PALETTE["border"])
-        self.sidebar_frame.grid(row=0, column=0, padx=(10, 0), pady=10, sticky="nsew")
+        self.sidebar_frame.grid(row=0, column=0, padx=(
+            10, 0), pady=10, sticky="nsew")
         self.sidebar_frame.grid_rowconfigure(8, weight=1)
 
         self.category_buttons = []
-        categories = ["All", "Standard", "Mining", "Oil Processing", "IM", "Uninstallers"]
+        categories = ["All", "Standard", "Mining",
+                      "Oil Processing", "IM", "Uninstallers"]
         for i, cat in enumerate(categories):
             btn = ctk.CTkButton(
                 self.sidebar_frame, text=cat, corner_radius=10, height=34,
@@ -251,7 +258,8 @@ class DesireeSoftwareCenter(ctk.CTk):
                 image=self.icon(CATEGORY_ICONS[cat]), compound="left", anchor="w",
                 command=lambda c=cat: self.select_category(c)
             )
-            btn.grid(row=i, column=0, padx=8, pady=(8 if i == 0 else 2, 2), sticky="ew")
+            btn.grid(row=i, column=0, padx=8, pady=(
+                8 if i == 0 else 2, 2), sticky="ew")
             self.category_buttons.append(btn)
 
         self.selected_category = "All"
@@ -272,7 +280,8 @@ class DesireeSoftwareCenter(ctk.CTk):
             image=self.icon("wrench"), compound="left",
             anchor="w", command=self._open_quick_tools
         ).grid(row=7, column=0, padx=8, pady=(0, 4), sticky="ew")
-        threading.Thread(target=self._refresh_proxy_status, daemon=True).start()
+        threading.Thread(target=self._refresh_proxy_status,
+                         daemon=True).start()
 
         # About
         ctk.CTkButton(
@@ -286,7 +295,7 @@ class DesireeSoftwareCenter(ctk.CTk):
 
         # Shortcuts hint (compact)
         hints_frame = ctk.CTkFrame(self.sidebar_frame, fg_color=PALETTE["surface_alt"],
-                                    corner_radius=8, border_width=1, border_color=PALETTE["border"])
+                                   corner_radius=8, border_width=1, border_color=PALETTE["border"])
         hints_frame.grid(row=9, column=0, padx=8, pady=(0, 6), sticky="ew")
         for r, (key, desc) in enumerate([
             ("Ctrl+F", "Search"), ("Ctrl+A", "Add App"),
@@ -313,7 +322,7 @@ class DesireeSoftwareCenter(ctk.CTk):
                 logo_img = Image.open(logo_file)
                 w, h = logo_img.size
                 self.sidebar_logo = ctk.CTkImage(light_image=logo_img, dark_image=logo_img,
-                                                  size=(140, int(140 * h / w)))
+                                                 size=(140, int(140 * h / w)))
                 ctk.CTkLabel(self.sidebar_frame, image=self.sidebar_logo, text="").grid(
                     row=11, column=0, padx=14, pady=14)
             except Exception as e:
@@ -321,57 +330,67 @@ class DesireeSoftwareCenter(ctk.CTk):
 
     # ── Main panel ─────────────────────────────────────────────────────────
     def _build_main(self):
-        self.main_frame = ctk.CTkFrame(self, corner_radius=18, fg_color=PALETTE["surface_alt"])
+        self.main_frame = ctk.CTkFrame(
+            self, corner_radius=18, fg_color=PALETTE["surface_alt"])
         self.main_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
         self.main_frame.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_rowconfigure(2, weight=1)
 
         # Header
-        hdr = ctk.CTkFrame(self.main_frame, height=72, corner_radius=16, fg_color=PALETTE["primary"])
+        hdr = ctk.CTkFrame(self.main_frame, height=72,
+                           corner_radius=16, fg_color=PALETTE["primary"])
         hdr.grid(row=0, column=0, padx=8, pady=8, sticky="ew")
         hdr.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(hdr, text="Debswana Software Kit", text_color="white",
                      font=ctk.CTkFont(size=22, weight="bold")).grid(row=0, column=0, padx=14, pady=14, sticky="w")
         self.wifi_status_label = ctk.CTkLabel(hdr, text="Checking connection...",
-                                               text_color="white", font=ctk.CTkFont(weight="bold"))
-        self.wifi_status_label.grid(row=0, column=1, padx=14, pady=14, sticky="e")
+                                              text_color="white", font=ctk.CTkFont(weight="bold"))
+        self.wifi_status_label.grid(
+            row=0, column=1, padx=14, pady=14, sticky="e")
 
         # Actions row
         action = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         action.grid(row=1, column=0, padx=14, pady=4, sticky="ew")
 
-        ctk.CTkLabel(action, image=self.icon("search"), text="").grid(row=0, column=0, padx=(0, 6))
+        ctk.CTkLabel(action, image=self.icon("search"),
+                     text="").grid(row=0, column=0, padx=(0, 6))
         self.search_entry = ctk.CTkEntry(action, placeholder_text="Search applications...",
-                                          width=350, fg_color=PALETTE["surface"],
-                                          border_color=PALETTE["border"], text_color=PALETTE["text"])
+                                         width=350, fg_color=PALETTE["surface"],
+                                         border_color=PALETTE["border"], text_color=PALETTE["text"])
         self.search_entry.grid(row=0, column=1, padx=(0, 12), pady=6)
-        self.search_entry.bind("<KeyRelease>", lambda e: self._on_search_change())
+        self.search_entry.bind(
+            "<KeyRelease>", lambda e: self._on_search_change())
 
-        btn_cfg = dict(fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"])
+        btn_cfg = dict(fg_color=PALETTE["primary"],
+                       hover_color=PALETTE["primary_hover"])
         self.install_all_btn = ctk.CTkButton(action, text="Install All Standard",
-                                              image=self.icon("package_plus"), compound="left",
-                                              command=self.show_install_all_dialog, **btn_cfg)
+                                             image=self.icon("package_plus"), compound="left",
+                                             command=self.show_install_all_dialog, **btn_cfg)
         self.install_all_btn.grid(row=0, column=2, padx=6, pady=6)
 
         self.add_app_btn = ctk.CTkButton(action, text="Add App", image=self.icon("plus"),
-                                          compound="left", fg_color=PALETTE["surface"],
-                                          text_color=PALETTE["text"], hover_color=PALETTE["sidebar_hover"],
-                                          border_width=1, border_color=PALETTE["border"],
-                                          command=self.show_add_app_dialog)
+                                         compound="left", fg_color=PALETTE["surface"],
+                                         text_color=PALETTE["text"], hover_color=PALETTE["sidebar_hover"],
+                                         border_width=1, border_color=PALETTE["border"],
+                                         command=self.show_add_app_dialog)
         self.add_app_btn.grid(row=0, column=3, padx=6, pady=6)
 
         # Dashboard
-        self.dashboard_frame = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.dashboard_frame.grid(row=2, column=0, padx=14, pady=6, sticky="nsew")
+        self.dashboard_frame = ctk.CTkScrollableFrame(
+            self.main_frame, fg_color="transparent")
+        self.dashboard_frame.grid(
+            row=2, column=0, padx=14, pady=6, sticky="nsew")
         self.dashboard_frame.grid_columnconfigure((0, 1), weight=1)
 
         # Status bar
-        status_frame = ctk.CTkFrame(self.main_frame, height=42, corner_radius=0, fg_color="transparent")
+        status_frame = ctk.CTkFrame(
+            self.main_frame, height=42, corner_radius=0, fg_color="transparent")
         status_frame.grid(row=3, column=0, padx=14, pady=(0, 6), sticky="ew")
         self.progress_bar = ctk.CTkProgressBar(status_frame, width=730)
         self.progress_bar.set(0)
         self.progress_bar.grid(row=0, column=0, pady=(0, 3))
-        self.status_label = ctk.CTkLabel(status_frame, text="Ready.", font=ctk.CTkFont(weight="bold"))
+        self.status_label = ctk.CTkLabel(
+            status_frame, text="Ready.", font=ctk.CTkFont(weight="bold"))
         self.status_label.grid(row=1, column=0, sticky="w")
 
     # ── App close ──────────────────────────────────────────────────────────
@@ -392,10 +411,14 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.bind_all("<Control-A>", lambda e: self.show_add_app_dialog())
         self.bind_all("<Control-i>", lambda e: self._open_about())
         self.bind_all("<Control-I>", lambda e: self._open_about())
-        self.bind_all("<Control-r>", lambda e: subprocess.Popen("ms-settings:about", shell=True))
-        self.bind_all("<Control-R>", lambda e: subprocess.Popen("ms-settings:about", shell=True))
-        self.bind_all("<Control-l>", lambda e: subprocess.Popen("appwiz.cpl", shell=True))
-        self.bind_all("<Control-L>", lambda e: subprocess.Popen("appwiz.cpl", shell=True))
+        self.bind_all(
+            "<Control-r>", lambda e: subprocess.Popen("ms-settings:about", shell=True))
+        self.bind_all(
+            "<Control-R>", lambda e: subprocess.Popen("ms-settings:about", shell=True))
+        self.bind_all(
+            "<Control-l>", lambda e: subprocess.Popen("appwiz.cpl", shell=True))
+        self.bind_all(
+            "<Control-L>", lambda e: subprocess.Popen("appwiz.cpl", shell=True))
         self.bind_all("<Up>", lambda e: self._move_selection(-1))
         self.bind_all("<Down>", lambda e: self._move_selection(1))
         self.bind_all("<Return>", lambda e: self._install_selected())
@@ -411,7 +434,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         if not self._filtered_apps:
             return
         self._selected_index = max(0, min(len(self._filtered_apps) - 1,
-                                           self._selected_index + delta))
+                                          self._selected_index + delta))
         self.render_apps()
 
     def _install_selected(self):
@@ -444,7 +467,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         if not self._gif_frames:
             return
         self.gif_label.configure(image=self._gif_frames[idx])
-        self._gif_job = self.after(50, self._animate_gif, (idx + 1) % len(self._gif_frames))
+        self._gif_job = self.after(
+            50, self._animate_gif, (idx + 1) % len(self._gif_frames))
 
     def hide_gif(self):
         if self._gif_job:
@@ -501,7 +525,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         search = self.search_entry.get().lower()
         apps = self.logic.apps
         if self.selected_category != "All":
-            apps = [a for a in apps if a.get("category") == self.selected_category]
+            apps = [a for a in apps if a.get(
+                "category") == self.selected_category]
         if search:
             apps = [a for a in apps if search in a.get("name", "").lower()
                     or search in a.get("category", "").lower()]
@@ -516,7 +541,8 @@ class DesireeSoftwareCenter(ctk.CTk):
             self._filtered_apps = apps
             self._rendered_keys = new_keys
             for i, app in enumerate(apps):
-                self._create_app_card(app, i, selected=(i == self._selected_index))
+                self._create_app_card(
+                    app, i, selected=(i == self._selected_index))
         else:
             # Only selection changed — recolor in place
             self._filtered_apps = apps
@@ -528,7 +554,8 @@ class DesireeSoftwareCenter(ctk.CTk):
                 selected = (idx == self._selected_index)
                 app = apps[idx]
                 cat = app.get("category", "")
-                bg = PALETTE["primary"] if selected else CATEGORY_COLORS.get(cat, PALETTE["surface"])
+                bg = PALETTE["primary"] if selected else CATEGORY_COLORS.get(
+                    cat, PALETTE["surface"])
                 txt_color = "white" if selected else PALETTE["text"]
                 muted_color = "#c8d7e6" if selected else PALETTE["muted"]
                 bw = 2 if selected else 1
@@ -545,7 +572,8 @@ class DesireeSoftwareCenter(ctk.CTk):
     def _create_app_card(self, app, index, selected=False):
         row, col = divmod(index, 2)
         cat = app.get("category", "")
-        bg = PALETTE["primary"] if selected else CATEGORY_COLORS.get(cat, PALETTE["surface"])
+        bg = PALETTE["primary"] if selected else CATEGORY_COLORS.get(
+            cat, PALETTE["surface"])
         txt_color = "white" if selected else PALETTE["text"]
         muted_color = "#c8d7e6" if selected else PALETTE["muted"]
 
@@ -558,7 +586,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         self._card_widgets[index] = card
 
         name_lbl = ctk.CTkLabel(card, text=app.get("name", ""),
-                                 font=ctk.CTkFont(size=13, weight="bold"), text_color=txt_color)
+                                font=ctk.CTkFont(size=13, weight="bold"), text_color=txt_color)
         name_lbl.grid(row=0, column=0, padx=10, pady=(7, 0), sticky="w")
 
         ctk.CTkLabel(card, text=cat, font=ctk.CTkFont(size=11),
@@ -587,9 +615,11 @@ class DesireeSoftwareCenter(ctk.CTk):
         menu = tk.Menu(self, tearoff=0, bg=PALETTE["surface"], fg=PALETTE["text"],
                        activebackground=PALETTE["sidebar_hover"], activeforeground=PALETTE["text"],
                        relief="flat", bd=1)
-        menu.add_command(label="📂  Open Path", command=lambda: self._open_app_path(app))
+        menu.add_command(label="📂  Open Path",
+                         command=lambda: self._open_app_path(app))
         menu.add_separator()
-        menu.add_command(label="✏  Edit", command=lambda: self._edit_app_dialog(app))
+        menu.add_command(
+            label="✏  Edit", command=lambda: self._edit_app_dialog(app))
         menu.tk_popup(event.x_root, event.y_root)
 
     def _open_app_path(self, app):
@@ -598,7 +628,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         if folder and os.path.exists(folder):
             subprocess.Popen(f'explorer "{folder}"')
         else:
-            messagebox.showwarning("Open Path", f"Path not accessible:\n{folder or path}")
+            messagebox.showwarning(
+                "Open Path", f"Path not accessible:\n{folder or path}")
 
     def _edit_app_dialog(self, app):
         dlg = ctk.CTkToplevel(self)
@@ -609,27 +640,32 @@ class DesireeSoftwareCenter(ctk.CTk):
         field_defs = [("Name:", "name"), ("Path:", "path"), ("Args:", "args")]
         entries = []
         for r, (lbl, key) in enumerate(field_defs):
-            ctk.CTkLabel(dlg, text=lbl).grid(row=r, column=0, padx=14, pady=7, sticky="e")
+            ctk.CTkLabel(dlg, text=lbl).grid(
+                row=r, column=0, padx=14, pady=7, sticky="e")
             if key == "path":
                 frm = ctk.CTkFrame(dlg, fg_color="transparent")
                 frm.grid(row=r, column=1, padx=14, pady=7)
                 e = ctk.CTkEntry(frm, width=220)
                 e.insert(0, app.get(key, ""))
                 e.pack(side="left", padx=(0, 6))
+
                 def browse(entry=e):
                     f = filedialog.askopenfilename()
                     if f:
                         entry.delete(0, "end")
                         entry.insert(0, f)
-                ctk.CTkButton(frm, text="Browse", width=70, command=browse).pack(side="left")
+                ctk.CTkButton(frm, text="Browse", width=70,
+                              command=browse).pack(side="left")
             else:
                 e = ctk.CTkEntry(dlg, width=300)
                 e.insert(0, app.get(key, ""))
                 e.grid(row=r, column=1, padx=14, pady=7)
             entries.append(e)
 
-        ctk.CTkLabel(dlg, text="Category:").grid(row=3, column=0, padx=14, pady=7, sticky="e")
-        cat_combo = ctk.CTkComboBox(dlg, values=["Standard", "Mining", "Oil Processing", "IM", "Uninstallers"], width=300)
+        ctk.CTkLabel(dlg, text="Category:").grid(
+            row=3, column=0, padx=14, pady=7, sticky="e")
+        cat_combo = ctk.CTkComboBox(dlg, values=[
+                                    "Standard", "Mining", "Oil Processing", "IM", "Uninstallers"], width=300)
         cat_combo.set(app.get("category", "Standard"))
         cat_combo.grid(row=3, column=1, padx=14, pady=7)
 
@@ -649,13 +685,15 @@ class DesireeSoftwareCenter(ctk.CTk):
 
     # ── Install ────────────────────────────────────────────────────────────
     def install_thread(self, app):
-        threading.Thread(target=self._run_install, args=(app,), daemon=True).start()
+        threading.Thread(target=self._run_install,
+                         args=(app,), daemon=True).start()
 
     def _run_install(self, app):
         self.progress_bar.set(0.2)
         self.install_all_btn.configure(state="disabled")
         self.after(0, lambda: self.show_gif("file-transfer"))
-        success = self.logic.install_app(app, status_callback=self.update_status)
+        success = self.logic.install_app(
+            app, status_callback=self.update_status)
         self.progress_bar.set(1.0)
         self.install_all_btn.configure(state="normal")
         if success:
@@ -670,7 +708,8 @@ class DesireeSoftwareCenter(ctk.CTk):
 
     # ── Bulk install ───────────────────────────────────────────────────────
     def show_install_all_dialog(self):
-        standard = [a for a in self.logic.apps if a.get("category") == "Standard"]
+        standard = [a for a in self.logic.apps if a.get(
+            "category") == "Standard"]
         if not standard:
             messagebox.showinfo("Info", "No standard applications found.")
             return
@@ -689,21 +728,26 @@ class DesireeSoftwareCenter(ctk.CTk):
         checkboxes = []
         for app in standard:
             var = tk.BooleanVar(value=True)
-            ctk.CTkCheckBox(scroll, text=f"{app['name']} - {app['category']}", variable=var).pack(anchor="w", padx=14, pady=3)
+            ctk.CTkCheckBox(
+                scroll, text=f"{app['name']} - {app['category']}", variable=var).pack(anchor="w", padx=14, pady=3)
             checkboxes.append((app, var))
 
         btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
         btn_row.pack(pady=8)
-        ctk.CTkButton(btn_row, text="Select All", command=lambda: [v.set(True) for _, v in checkboxes]).grid(row=0, column=0, padx=6)
-        ctk.CTkButton(btn_row, text="Deselect All", command=lambda: [v.set(False) for _, v in checkboxes]).grid(row=0, column=1, padx=6)
+        ctk.CTkButton(btn_row, text="Select All", command=lambda: [
+                      v.set(True) for _, v in checkboxes]).grid(row=0, column=0, padx=6)
+        ctk.CTkButton(btn_row, text="Deselect All", command=lambda: [
+                      v.set(False) for _, v in checkboxes]).grid(row=0, column=1, padx=6)
 
         def start():
             selected = [a for a, v in checkboxes if v.get()]
             if not selected:
-                messagebox.showwarning("No Selection", "Please select at least one application.")
+                messagebox.showwarning(
+                    "No Selection", "Please select at least one application.")
                 return
             dlg.destroy()
-            threading.Thread(target=self._run_bulk_install, args=(selected,), daemon=True).start()
+            threading.Thread(target=self._run_bulk_install,
+                             args=(selected,), daemon=True).start()
 
         ctk.CTkButton(dlg, text="Install Selected",
                       fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"],
@@ -715,7 +759,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.after(0, lambda: self.show_gif("file-transfer"))
         failed = []
         for i, app in enumerate(apps):
-            self.update_status(f"Installing ({i+1}/{total}): {app['name']}...", "orange")
+            self.update_status(
+                f"Installing ({i+1}/{total}): {app['name']}...", "orange")
             self.progress_bar.set((i + 1) / total)
             if not self.logic.install_app(app, status_callback=self.update_status):
                 failed.append(app['name'])
@@ -730,7 +775,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         else:
             self.after(0, lambda: self.show_gif("animated-download"))
             self.after(2500, self.hide_gif)
-            self.update_status(f"Installation complete! ({total} applications)", "green")
+            self.update_status(
+                f"Installation complete! ({total} applications)", "green")
 
     # ── Add App ────────────────────────────────────────────────────────────
     def show_add_app_dialog(self):
@@ -742,30 +788,36 @@ class DesireeSoftwareCenter(ctk.CTk):
         fields = [("Name:", None), ("Path:", None), ("Args:", None)]
         entries = []
         for r, (lbl, _) in enumerate(fields):
-            ctk.CTkLabel(dlg, text=lbl).grid(row=r, column=0, padx=14, pady=7, sticky="e")
+            ctk.CTkLabel(dlg, text=lbl).grid(
+                row=r, column=0, padx=14, pady=7, sticky="e")
             if lbl == "Path:":
                 frm = ctk.CTkFrame(dlg, fg_color="transparent")
                 frm.grid(row=r, column=1, padx=14, pady=7)
                 e = ctk.CTkEntry(frm, width=220)
                 e.pack(side="left", padx=(0, 6))
+
                 def browse(entry=e):
                     f = filedialog.askopenfilename()
                     if f:
                         entry.delete(0, "end")
                         entry.insert(0, f)
-                ctk.CTkButton(frm, text="Browse", width=70, command=browse).pack(side="left")
+                ctk.CTkButton(frm, text="Browse", width=70,
+                              command=browse).pack(side="left")
             else:
                 e = ctk.CTkEntry(dlg, width=300)
                 e.grid(row=r, column=1, padx=14, pady=7)
             entries.append(e)
 
-        ctk.CTkLabel(dlg, text="Category:").grid(row=3, column=0, padx=14, pady=7, sticky="e")
-        cat_combo = ctk.CTkComboBox(dlg, values=["Standard", "Mining", "Oil Processing", "IM", "Uninstallers"], width=300)
+        ctk.CTkLabel(dlg, text="Category:").grid(
+            row=3, column=0, padx=14, pady=7, sticky="e")
+        cat_combo = ctk.CTkComboBox(dlg, values=[
+                                    "Standard", "Mining", "Oil Processing", "IM", "Uninstallers"], width=300)
         cat_combo.grid(row=3, column=1, padx=14, pady=7)
         cat_combo.set("Standard")
 
         def save():
-            self.logic.add_app(entries[0].get(), entries[1].get(), entries[2].get(), "", cat_combo.get())
+            self.logic.add_app(entries[0].get(), entries[1].get(
+            ), entries[2].get(), "", cat_combo.get())
             self.render_apps()
             dlg.destroy()
 
@@ -830,7 +882,8 @@ class DesireeSoftwareCenter(ctk.CTk):
                      "/d", "activation-v2.sls.microsoft.com;*.microsoft.com;*.windowsupdate.com", "/f"],
                 ]
                 for cmd in cmds:
-                    subprocess.check_call(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
+                    subprocess.check_call(
+                        cmd, creationflags=subprocess.CREATE_NO_WINDOW)
                 self._proxy_enabled = True
             self.after(0, self._update_proxy_btn)
         except Exception as e:
@@ -849,7 +902,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         if os.path.exists(logo_file):
             try:
                 img = Image.open(logo_file)
-                logo = ctk.CTkImage(light_image=img, dark_image=img, size=(90, 90))
+                logo = ctk.CTkImage(
+                    light_image=img, dark_image=img, size=(90, 90))
                 ctk.CTkLabel(dlg, image=logo, text="").pack(pady=(18, 4))
             except Exception:
                 pass
@@ -917,12 +971,14 @@ class DesireeSoftwareCenter(ctk.CTk):
 
         ctk.CTkButton(dlg, text=" Rename this PC  (Ctrl+R)",
                       image=self.icon("computer"), compound="left",
-                      command=lambda: subprocess.Popen("ms-settings:about", shell=True),
+                      command=lambda: subprocess.Popen(
+                          "ms-settings:about", shell=True),
                       **btn_cfg).pack(fill="x", padx=16, pady=(0, 4))
 
         ctk.CTkButton(dlg, text=" Installed Apps  (Ctrl+L)",
                       image=self.icon("wrench"), compound="left",
-                      command=lambda: subprocess.Popen("appwiz.cpl", shell=True),
+                      command=lambda: subprocess.Popen(
+                          "appwiz.cpl", shell=True),
                       **btn_cfg).pack(fill="x", padx=16, pady=(0, 4))
 
     # ── Status ─────────────────────────────────────────────────────────────
@@ -932,7 +988,8 @@ class DesireeSoftwareCenter(ctk.CTk):
             return
         color_map = {"orange": PALETTE["warning"], "red": PALETTE["danger"],
                      "green": PALETTE["success"], "white": PALETTE["text"]}
-        self.status_label.configure(text=message, text_color=color_map.get(color, PALETTE["text"]))
+        self.status_label.configure(
+            text=message, text_color=color_map.get(color, PALETTE["text"]))
         if "completed" in message.lower():
             self.progress_bar.set(1.0)
 
@@ -943,7 +1000,8 @@ if __name__ == "__main__":
     if REQUIRE_ADMIN:
         import ctypes
         if not ctypes.windll.shell32.IsUserAnAdmin():
-            ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+            ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", sys.executable, " ".join(sys.argv), None, 1)
             sys.exit()
 
     app = DesireeSoftwareCenter()
