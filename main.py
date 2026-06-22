@@ -296,6 +296,8 @@ class DesireeSoftwareCenter(ctk.CTk):
             ("Ctrl+W", "Close"),
             ("↑↓", "Navigate"),
             ("Enter", "Install selected"),
+            ("Ctrl+P", "Toggle Proxy"),
+            ("Ctrl+I", "About / System Info"),
         ]
         for col, (key, desc) in enumerate(hints):
             ctk.CTkLabel(shortcuts_bar,
@@ -330,6 +332,25 @@ class DesireeSoftwareCenter(ctk.CTk):
                                           command=self.show_add_app_dialog)
         self.add_app_btn.grid(row=0, column=3, padx=6, pady=6)
 
+        # Proxy toggle
+        self._proxy_enabled = None
+        self.proxy_btn = ctk.CTkButton(
+            action, text="⚙ Proxy: …", width=130,
+            fg_color=PALETTE["surface"], text_color=PALETTE["text"],
+            hover_color=PALETTE["sidebar_hover"],
+            border_width=1, border_color=PALETTE["border"],
+            command=self._toggle_proxy)
+        self.proxy_btn.grid(row=0, column=4, padx=6, pady=6)
+        threading.Thread(target=self._refresh_proxy_label, daemon=True).start()
+
+        # About / System Info
+        ctk.CTkButton(
+            action, text="ℹ About", width=80,
+            fg_color=PALETTE["surface"], text_color=PALETTE["text"],
+            hover_color=PALETTE["sidebar_hover"],
+            border_width=1, border_color=PALETTE["border"],
+            command=self._open_about).grid(row=0, column=5, padx=6, pady=6)
+
         # Dashboard
         self.dashboard_frame = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
         self.dashboard_frame.grid(row=3, column=0, padx=14, pady=6, sticky="nsew")
@@ -352,6 +373,10 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.bind_all("<Control-W>", lambda e: self.destroy())
         self.bind_all("<Control-a>", lambda e: self.show_add_app_dialog())
         self.bind_all("<Control-A>", lambda e: self.show_add_app_dialog())
+        self.bind_all("<Control-p>", lambda e: self._toggle_proxy())
+        self.bind_all("<Control-P>", lambda e: self._toggle_proxy())
+        self.bind_all("<Control-i>", lambda e: self._open_about())
+        self.bind_all("<Control-I>", lambda e: self._open_about())
         self.bind_all("<Up>", lambda e: self._move_selection(-1))
         self.bind_all("<Down>", lambda e: self._move_selection(1))
         self.bind_all("<Return>", lambda e: self._install_selected())
@@ -634,6 +659,70 @@ class DesireeSoftwareCenter(ctk.CTk):
 
         # Bind Enter in dialog to save
         dlg.bind("<Return>", lambda e: save())
+
+    # ── Proxy toggle ───────────────────────────────────────────────────────
+    def _refresh_proxy_label(self):
+        try:
+            out = subprocess.check_output(
+                ["reg", "query",
+                 r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+                 "/v", "ProxyEnable"],
+                stderr=subprocess.STDOUT, universal_newlines=True,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            enabled = "0x1" in out
+        except Exception:
+            enabled = False
+        self._proxy_enabled = enabled
+        self.after(0, self._update_proxy_btn)
+
+    def _update_proxy_btn(self):
+        if self._proxy_enabled:
+            self.proxy_btn.configure(
+                text="⚙ Proxy: ON",
+                fg_color="#1f7a4d", text_color="white",
+                hover_color="#165c38", border_color="#1f7a4d")
+        else:
+            self.proxy_btn.configure(
+                text="⚙ Proxy: OFF",
+                fg_color=PALETTE["surface"], text_color=PALETTE["text"],
+                hover_color=PALETTE["sidebar_hover"], border_color=PALETTE["border"])
+
+    def _toggle_proxy(self):
+        threading.Thread(target=self._do_toggle_proxy, daemon=True).start()
+
+    def _do_toggle_proxy(self):
+        try:
+            if self._proxy_enabled:
+                subprocess.check_call(
+                    ["reg", "add",
+                     r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+                     "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f"],
+                    creationflags=subprocess.CREATE_NO_WINDOW)
+                self._proxy_enabled = False
+            else:
+                cmds = [
+                    ["reg", "add",
+                     r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+                     "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f"],
+                    ["reg", "add",
+                     r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+                     "/v", "ProxyServer", "/t", "REG_SZ", "/d", "10.176.40.29:80", "/f"],
+                    ["reg", "add",
+                     r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+                     "/v", "ProxyOverride", "/t", "REG_SZ",
+                     "/d", "activation-v2.sls.microsoft.com;*.microsoft.com;*.windowsupdate.com", "/f"],
+                ]
+                for cmd in cmds:
+                    subprocess.check_call(cmd, creationflags=subprocess.CREATE_NO_WINDOW)
+                self._proxy_enabled = True
+            self.after(0, self._update_proxy_btn)
+        except Exception as e:
+            self.after(0, lambda: messagebox.showerror("Proxy Error", str(e)))
+
+    # ── About / System Info ────────────────────────────────────────────────
+    def _open_about(self):
+        subprocess.Popen(["ms-settings:about"], shell=True)
 
     # ── Status ─────────────────────────────────────────────────────────────
     def update_status(self, message, color="white"):
