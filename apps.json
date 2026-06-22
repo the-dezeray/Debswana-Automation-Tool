@@ -1,45 +1,5 @@
 [
   {
-    "name": "Dell Command Update",
-    "path": "\\\\10.50.93.5\\g\\V.Soft\\Dell-Command-Update-Application_8DGG4_WIN_4.4.0_A00 (3).EXE",
-    "args": "",
-    "workingDir": "",
-    "category": "Standard",
-    "type": "exe",
-    "standard": true,
-    "checkType": "Registry",
-    "checkMatch": "Dell Command"
-  },
-  {
-    "name": "Microsoft Office 2024 Pro Plus",
-    "path": "\\\\10.50.93.5\\g\\Crowd\\New Office Offline Installer\\Office 2024 Pro plus\\*",
-    "args": "/configure download.xml",
-    "workingDir": "C:\\Office2024",
-    "category": "Standard",
-    "type": "copy-then-run",
-    "destDir": "C:\\Office2024",
-    "exeName": "setup.exe",
-    "standard": true
-  },
-  {
-    "name": "Cisco IP Communicator",
-    "path": "\\\\10.50.93.5\\g\\V.Soft\\CISCO IP\\CiscoIPCommunicatorSetup.exe",
-    "args": "",
-    "workingDir": "",
-    "category": "Standard",
-    "type": "exe",
-    "standard": true
-  },
-  {
-    "name": "Adobe Acrobat Reader DC",
-    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\AcroRdrDC1502320053_en_US.exe",
-    "args": "",
-    "workingDir": "",
-    "category": "Standard",
-    "type": "exe",
-    "standard": true
-  },
-  {
     "name": "SCCM Client",
     "path": "\\\\10.50.93.5\\g\\V.Soft\\MC\\cd.latest\\SMSSETUP\\CLIENT\\ccmsetup.exe",
     "args": "",
@@ -51,48 +11,15 @@
     "checkService": "CcmExec"
   },
   {
-    "name": "SCEP",
-    "path": "\\\\10.50.93.5\\g\\V.Soft\\MC\\cd.latest\\SMSSETUP\\CLIENT\\SCEPInstall.exe",
+    "name": "Dell Command Update",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\Dell-Command-Update-Application_8DGG4_WIN_4.4.0_A00 (3).EXE",
     "args": "",
     "workingDir": "",
     "category": "Standard",
     "type": "exe",
     "standard": true,
     "checkType": "Registry",
-    "checkMatch": "Endpoint Protection"
-  },
-  {
-    "name": "Enterprise Vault 12",
-    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\Enterprise Vault 12\\Outlook Add-In\\x64\\setup.exe",
-    "args": "",
-    "workingDir": "",
-    "category": "Standard",
-    "type": "exe",
-    "standard": true,
-    "checkType": "Registry",
-    "checkMatch": "Enterprise Vault"
-  },
-  {
-    "name": "SAP GUI 7.7",
-    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\SAP 7.7\\SAPGUI_20220606_1605.exe",
-    "args": "",
-    "workingDir": "",
-    "category": "Standard",
-    "type": "exe",
-    "standard": true,
-    "checkType": "Registry",
-    "checkMatch": "SAP GUI"
-  },
-  {
-    "name": "SAPscript Legacy Text Editor",
-    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\sap text editor\\SAPSLTESP00_0-70001053.exe",
-    "args": "",
-    "workingDir": "",
-    "category": "Standard",
-    "type": "exe",
-    "standard": true,
-    "checkType": "Registry",
-    "checkMatch": "SAPscript"
+    "checkMatch": "Dell Command"
   },
   {
     "name": "CrowdStrike Falcon",
@@ -104,17 +31,6 @@
     "standard": true,
     "checkType": "Registry",
     "checkMatch": "CrowdStrike Sensor Platform"
-  },
-  {
-    "name": "TITUS Classification Client",
-    "path": "\\\\10.50.93.5\\g\\Crowd\\TITUS Classification Clients 2019.1 HF1\\TITUSClassificationSetup.exe",
-    "args": "",
-    "workingDir": "",
-    "category": "Standard",
-    "type": "exe",
-    "standard": true,
-    "checkType": "Registry",
-    "checkMatch": "TITUS Classification"
   },
   {
     "name": "Cisco AnyConnect v5.1",
@@ -141,5 +57,89 @@
     "keepWindowOpen": true,
     "checkType": "Registry",
     "checkMatch": "Qualys Cloud Security Agent"
+  },
+  {
+    "name": "Cisco IP Communicator",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\CISCO IP\\CiscoIPCommunicatorSetup.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "Adobe Acrobat Reader DC",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\AcroRdrDC1502320053_en_US.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true
+  },
+  {
+    "name": "SAP GUI 7.7",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\SAP 7.7\\SAPGUI_20220606_1605.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "SAP GUI"
+  },
+  {
+    "name": "SAPscript Legacy Text Editor",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\sap text editor\\SAPSLTESP00_0-70001053.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "SAPscript"
+  },
+  {
+    "name": "Microsoft Office 2024 Pro Plus",
+    "path": "\\\\10.50.93.5\\g\\Crowd\\New Office Offline Installer\\Office 2024 Pro plus\\*",
+    "args": "/configure download.xml",
+    "workingDir": "C:\\Office2024",
+    "category": "Standard",
+    "type": "copy-then-run",
+    "destDir": "C:\\Office2024",
+    "exeName": "setup.exe",
+    "standard": true
+  },
+  {
+    "name": "TITUS Classification Client",
+    "path": "\\\\10.50.93.5\\g\\Crowd\\TITUS Classification Clients 2019.1 HF1\\TITUSClassificationSetup.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "TITUS Classification"
+  },
+  {
+    "name": "Enterprise Vault 12",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\Standard Softwares\\Enterprise Vault 12\\Outlook Add-In\\x64\\setup.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "Enterprise Vault"
+  },
+  {
+    "name": "SCEP",
+    "path": "\\\\10.50.93.5\\g\\V.Soft\\MC\\cd.latest\\SMSSETUP\\CLIENT\\SCEPInstall.exe",
+    "args": "",
+    "workingDir": "",
+    "category": "Standard",
+    "type": "exe",
+    "standard": true,
+    "checkType": "Registry",
+    "checkMatch": "Endpoint Protection"
   }
 ]
