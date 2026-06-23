@@ -167,3 +167,22 @@ class AppLogic:
             "standard": category == "Standard"
         })
         self.save_apps()
+
+    def delete_app(self, app):
+        """
+        Remove an app entry and persist. Try direct object removal first, fall back to
+        matching by name and path.
+        """
+        try:
+            self.apps.remove(app)
+        except ValueError:
+            name = app.get("name")
+            path = app.get("path")
+            for existing in list(self.apps):
+                if existing.get("name") == name and existing.get("path") == path:
+                    try:
+                        self.apps.remove(existing)
+                        break
+                    except ValueError:
+                        pass
+        self.save_apps()

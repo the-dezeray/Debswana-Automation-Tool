@@ -387,7 +387,7 @@ class DesireeSoftwareCenter(ctk.CTk):
             self.main_frame, height=42, corner_radius=0, fg_color="transparent")
         status_frame.grid(row=3, column=0, padx=14, pady=(0, 6), sticky="ew")
         self.progress_bar = ctk.CTkProgressBar(status_frame, width=730)
-        self.progress_bar.set(0)
+        self.set_progress(0)
         self.progress_bar.grid(row=0, column=0, pady=(0, 3))
         self.status_label = ctk.CTkLabel(
             status_frame, text="Ready.", font=ctk.CTkFont(weight="bold"))
@@ -678,9 +678,24 @@ class DesireeSoftwareCenter(ctk.CTk):
             self.render_apps()
             dlg.destroy()
 
-        ctk.CTkButton(dlg, text="Save", command=save,
-                      fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"]).grid(
-                          row=4, column=0, columnspan=2, pady=12)
+        btn_frame = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_frame.grid(row=4, column=0, columnspan=2, pady=12)
+
+        ctk.CTkButton(btn_frame, text="Save", command=save,
+                      fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"]).pack(side="left", padx=(0, 6))
+
+        def delete_entry():
+            if messagebox.askyesno("Delete", f"Delete '{app.get('name','this entry')}'?"):
+                try:
+                    self.logic.delete_app(app)
+                except Exception:
+                    pass
+                self.render_apps()
+                dlg.destroy()
+
+        ctk.CTkButton(btn_frame, text="Delete", command=delete_entry,
+                      fg_color=PALETTE["danger"], text_color="white").pack(side="left")
+
         dlg.bind("<Return>", lambda e: save())
 
     # ── Install ────────────────────────────────────────────────────────────
@@ -689,12 +704,12 @@ class DesireeSoftwareCenter(ctk.CTk):
                          args=(app,), daemon=True).start()
 
     def _run_install(self, app):
-        self.progress_bar.set(0.2)
+        self.set_progress(0.2)
         self.install_all_btn.configure(state="disabled")
         self.after(0, lambda: self.show_gif("file-transfer"))
         success = self.logic.install_app(
             app, status_callback=self.update_status)
-        self.progress_bar.set(1.0)
+        self.set_progress(1.0)
         self.install_all_btn.configure(state="normal")
         if success:
             self.after(0, lambda: self.show_gif("animated-download"))
@@ -761,7 +776,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         for i, app in enumerate(apps):
             self.update_status(
                 f"Installing ({i+1}/{total}): {app['name']}...", "orange")
-            self.progress_bar.set((i + 1) / total)
+            self.set_progress((i + 1) / total)
             if not self.logic.install_app(app, status_callback=self.update_status):
                 failed.append(app['name'])
         self.after(0, self.render_apps)
@@ -982,6 +997,20 @@ class DesireeSoftwareCenter(ctk.CTk):
                       **btn_cfg).pack(fill="x", padx=16, pady=(0, 4))
 
     # ── Status ─────────────────────────────────────────────────────────────
+    def set_progress(self, value):
+        """
+        Set progress and adjust color when idle (value == 0) vs active (>0).
+        """
+        try:
+            color = PALETTE["muted"] if value == 0 else PALETTE["primary"]
+            try:
+                self.progress_bar.configure(progress_color=color)
+            except Exception:
+                pass
+            self.progress_bar.set(value)
+        except Exception:
+            pass
+
     def update_status(self, message, color="white"):
         if threading.current_thread() != threading.main_thread():
             self.after(0, lambda: self.update_status(message, color))
@@ -991,7 +1020,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.status_label.configure(
             text=message, text_color=color_map.get(color, PALETTE["text"]))
         if "completed" in message.lower():
-            self.progress_bar.set(1.0)
+            self.set_progress(1.0)
 
 
 if __name__ == "__main__":
