@@ -27,9 +27,14 @@ jobs:
       - name: Build with PyInstaller
         run: |
           python build_exe.py
+          if (!(Test-Path "dist/DesireeSoftwareCenter.exe")) {
+            Write-Error "Build failed: dist/DesireeSoftwareCenter.exe not found"
+            exit 1
+          }
+        shell: pwsh
 
       - name: Upload Executable
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: DebswanaSoftwareKit-Windows
-          path: dist/DebswanaSoftwareKit.exe
+          name: DesireeSoftwareCenter-Windows
+          path: dist/DesireeSoftwareCenter.exe

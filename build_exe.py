@@ -26,13 +26,8 @@ def build():
     ]
 
     print(f"Running: {' '.join(cmd)}")
-    try:
-        subprocess.check_call(cmd)
-        print(f"\nBuild done! dist/{app_name}.exe")
-    except subprocess.CalledProcessError as e:
-        print(f"\nBuild failed: {e}")
-    except FileNotFoundError:
-        print("\nPyInstaller not found. Run: pip install pyinstaller")
+    subprocess.check_call(cmd)
+    print(f"\nBuild done! dist/{app_name}.exe")
 
 if __name__ == "__main__":
     build()
