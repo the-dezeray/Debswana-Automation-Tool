@@ -1024,7 +1024,7 @@ class DesireeSoftwareCenter(ctk.CTk):
 
 
 if __name__ == "__main__":
-    REQUIRE_ADMIN = False  # set to True to enable UAC elevation prompt
+    REQUIRE_ADMIN = True  # set to True to enable UAC elevation prompt
 
     if REQUIRE_ADMIN:
         import ctypes
