@@ -4,6 +4,7 @@ from tkinter import messagebox, filedialog
 from PIL import Image, ImageTk, ImageSequence
 import os
 import subprocess
+import sys
 import threading
 from app_logic import AppLogic, resource_path
 
@@ -386,12 +387,16 @@ class DesireeSoftwareCenter(ctk.CTk):
         status_frame = ctk.CTkFrame(
             self.main_frame, height=42, corner_radius=0, fg_color="transparent")
         status_frame.grid(row=3, column=0, padx=14, pady=(0, 6), sticky="ew")
-        self.progress_bar = ctk.CTkProgressBar(status_frame, width=730)
+        self.progress_bar = ctk.CTkProgressBar(
+            status_frame, width=730, height=22, corner_radius=6,
+            fg_color="transparent", border_color="#444", border_width=1,
+            progress_color="#E8A020")
         self.set_progress(0)
-        self.progress_bar.grid(row=0, column=0, pady=(0, 3))
+        self.progress_bar.place(x=0, y=0)
         self.status_label = ctk.CTkLabel(
-            status_frame, text="Ready.", font=ctk.CTkFont(weight="bold"))
-        self.status_label.grid(row=1, column=0, sticky="w")
+            status_frame, text="Ready.", font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="white", fg_color="transparent")
+        self.status_label.place(x=8, y=2)
 
     # ── App close ──────────────────────────────────────────────────────────
     def _on_close(self):
