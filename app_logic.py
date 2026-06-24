@@ -131,6 +131,9 @@ class AppLogic:
                 result = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
                 if result != 0:
                     raise RuntimeError(f"SHFileOperationW failed with code {result}")
+                if op.fAnyOperationsAborted:
+                    update(f"Copy cancelled by user.", "orange")
+                    return False
                 path = os.path.join(dest_dir, exe_name)
                 working_dir = dest_dir
 
@@ -142,10 +145,17 @@ class AppLogic:
                     ps_args += f' -ArgumentList "{args}"'
                 if working_dir:
                     ps_args += f' -WorkingDirectory "{working_dir}"'
-                subprocess.check_call(
-                    ["powershell", "-Command", f'Start-Process {ps_args} -Verb RunAs -Wait'],
+                ps_cmd = (
+                    f'$p = Start-Process {ps_args} -Verb RunAs -Wait -PassThru; '
+                    f'exit $p.ExitCode'
+                )
+                proc = subprocess.run(
+                    ["powershell", "-Command", ps_cmd],
                     creationflags=subprocess.CREATE_NO_WINDOW
                 )
+                if proc.returncode != 0:
+                    update(f"{name} - Installer exited with error (code {proc.returncode}).", "red")
+                    return False
             else:
                 import shlex
                 cmd = [path] + (shlex.split(args) if args else [])

@@ -76,7 +76,7 @@ class DesireeSoftwareCenter(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.logic = AppLogic()
-        self.title("Debswana Software Kit")
+        self.title("Debswana Software Kit  v1.0.0")
         self.geometry("1000x680")
         self.after(0, lambda: self.state("zoomed"))
         self.configure(fg_color=PALETTE["app_bg"])
@@ -392,8 +392,8 @@ class DesireeSoftwareCenter(ctk.CTk):
             text_color="white", fg_color="transparent")
         self.status_label.place(x=2, y=0)
         self.progress_bar = ctk.CTkProgressBar(
-            status_frame, width=730, height=22, corner_radius=6,
-            fg_color="#1a1a1a", border_color="#444", border_width=1,
+            status_frame, width=730, height=14, corner_radius=4,
+            fg_color="#2e2e2e", border_color="#555", border_width=1,
             progress_color="#E8A020")
         self.set_progress(0)
         self.progress_bar.place(x=0, y=20)
