@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-import shutil
 import subprocess
 from typing import List, Dict, Any
 
@@ -109,20 +108,29 @@ class AppLogic:
                 update(f"Copying installation files for {name}...", "orange")
                 os.makedirs(dest_dir, exist_ok=True)
                 source = path.rstrip("*\\/ ") if path.endswith("*") else path
-                if path.endswith("*"):
-                    for item in os.listdir(source):
-                        s = os.path.join(source, item)
-                        d = os.path.join(dest_dir, item)
-                        if os.path.isdir(s):
-                            if os.path.exists(d): shutil.rmtree(d)
-                            shutil.copytree(s, d)
-                        else:
-                            shutil.copy2(s, d)
-                else:
-                    if os.path.isdir(source):
-                        shutil.copytree(source, dest_dir, dirs_exist_ok=True)
-                    else:
-                        shutil.copy2(source, dest_dir)
+                # Use SHFileOperation — shows native Windows copy progress dialog, no PowerShell
+                import ctypes, ctypes.wintypes
+                class SHFILEOPSTRUCT(ctypes.Structure):
+                    _fields_ = [
+                        ("hwnd",   ctypes.wintypes.HWND),
+                        ("wFunc",  ctypes.c_uint),
+                        ("pFrom",  ctypes.c_wchar_p),
+                        ("pTo",    ctypes.c_wchar_p),
+                        ("fFlags", ctypes.c_ushort),
+                        ("fAnyOperationsAborted", ctypes.wintypes.BOOL),
+                        ("hNameMappings",         ctypes.c_void_p),
+                        ("lpszProgressTitle",     ctypes.c_wchar_p),
+                    ]
+                FO_COPY  = 0x0002
+                FOF_NOCONFIRMMKDIR = 0x0200  # auto-create dest, no prompt
+                op = SHFILEOPSTRUCT()
+                op.wFunc  = FO_COPY
+                op.pFrom  = source + "\0\0"   # double-null terminated
+                op.pTo    = dest_dir + "\0\0"
+                op.fFlags = FOF_NOCONFIRMMKDIR
+                result = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
+                if result != 0:
+                    raise RuntimeError(f"SHFileOperationW failed with code {result}")
                 path = os.path.join(dest_dir, exe_name)
                 working_dir = dest_dir
 
