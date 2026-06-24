@@ -392,11 +392,12 @@ class DesireeSoftwareCenter(ctk.CTk):
             text_color="white", fg_color="transparent")
         self.status_label.place(x=2, y=0)
         self.progress_bar = ctk.CTkProgressBar(
-            status_frame, width=730, height=14, corner_radius=4,
+            status_frame, width=680, height=10, corner_radius=4,
             fg_color="#2e2e2e", border_color="#555", border_width=1,
             progress_color="#E8A020")
         self.set_progress(0)
         self.progress_bar.place(x=0, y=20)
+        self.progress_bar.place_forget()
 
     # ── App close ──────────────────────────────────────────────────────────
     def _on_close(self):
@@ -709,22 +710,34 @@ class DesireeSoftwareCenter(ctk.CTk):
                          args=(app,), daemon=True).start()
 
     def _run_install(self, app):
-        self.set_progress(0.2)
+        self.after(0, lambda: self.progress_bar.place(x=0, y=20))
+        self.set_progress(0.15)
         self.install_all_btn.configure(state="disabled")
         self.after(0, lambda: self.show_gif("file-transfer"))
         success = self.logic.install_app(
             app, status_callback=self.update_status)
-        self.set_progress(1.0)
         self.install_all_btn.configure(state="normal")
         if success:
+            self.set_progress(1.0)
             self.after(0, lambda: self.show_gif("animated-download"))
             self.after(2500, self.hide_gif)
+            self.after(2500, lambda: self._reset_progress())
+        elif "cancelled" in (self.status_label.cget("text") or "").lower():
+            # User cancelled the copy dialog — reset quietly
+            self.after(0, self._reset_progress)
+            self.after(0, self.hide_gif)
         else:
+            self.set_progress(0)
             self.after(0, lambda: self.show_gif("error-animation"))
             self.after(3000, self.hide_gif)
             self.after(0, lambda: messagebox.showerror(
                 "Installation Failed",
                 f"Could not install {app.get('name', 'app')}.\n\nCheck your network or contact IT support."))
+
+    def _reset_progress(self):
+        self.set_progress(0)
+        self.progress_bar.place_forget()
+        self.update_status("Ready.", "white")
 
     # ── Bulk install ───────────────────────────────────────────────────────
     def show_install_all_dialog(self):
@@ -776,6 +789,7 @@ class DesireeSoftwareCenter(ctk.CTk):
     def _run_bulk_install(self, apps):
         total = len(apps)
         self.install_all_btn.configure(state="disabled")
+        self.after(0, lambda: self.progress_bar.place(x=0, y=20))
         self.after(0, lambda: self.show_gif("file-transfer"))
         failed = []
         for i, app in enumerate(apps):
@@ -789,12 +803,14 @@ class DesireeSoftwareCenter(ctk.CTk):
         if failed:
             self.after(0, lambda: self.show_gif("error-animation"))
             self.after(3000, self.hide_gif)
+            self.after(3000, self._reset_progress)
             self.after(0, lambda: messagebox.showwarning(
                 "Some Installations Failed",
                 f"{len(failed)} app(s) failed:\n\n" + "\n".join(f"• {n}" for n in failed)))
         else:
             self.after(0, lambda: self.show_gif("animated-download"))
             self.after(2500, self.hide_gif)
+            self.after(2500, self._reset_progress)
             self.update_status(
                 f"Installation complete! ({total} applications)", "green")
 

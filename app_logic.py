@@ -129,11 +129,11 @@ class AppLogic:
                 op.pTo    = dest_dir + "\0\0"
                 op.fFlags = FOF_NOCONFIRMMKDIR
                 result = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
+                if op.fAnyOperationsAborted:
+                    update("Copy cancelled by user.", "orange")
+                    return False
                 if result != 0:
                     raise RuntimeError(f"SHFileOperationW failed with code {result}")
-                if op.fAnyOperationsAborted:
-                    update(f"Copy cancelled by user.", "orange")
-                    return False
                 path = os.path.join(dest_dir, exe_name)
                 working_dir = dest_dir
 
