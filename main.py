@@ -76,7 +76,7 @@ class DesireeSoftwareCenter(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.logic = AppLogic()
-        self.title("Debswana Software Kit  v1.0.0")
+        self.title("debsSoft-kit  v-0.4")
         self.geometry("1000x680")
         self.after(0, lambda: self.state("zoomed"))
         self.configure(fg_color=PALETTE["app_bg"])
@@ -342,7 +342,7 @@ class DesireeSoftwareCenter(ctk.CTk):
                            corner_radius=16, fg_color=PALETTE["primary"])
         hdr.grid(row=0, column=0, padx=8, pady=8, sticky="ew")
         hdr.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(hdr, text="Debswana Software Kit", text_color="white",
+        ctk.CTkLabel(hdr, text="debsSoft-kit", text_color="white",
                      font=ctk.CTkFont(size=22, weight="bold")).grid(row=0, column=0, padx=14, pady=14, sticky="w")
         self.wifi_status_label = ctk.CTkLabel(hdr, text="Checking connection...",
                                               text_color="white", font=ctk.CTkFont(weight="bold"))
@@ -944,7 +944,7 @@ class DesireeSoftwareCenter(ctk.CTk):
             except Exception:
                 pass
 
-        ctk.CTkLabel(dlg, text="Debswana Software Kit",
+        ctk.CTkLabel(dlg, text="debsSoft-kit",
                      font=ctk.CTkFont(size=16, weight="bold"),
                      text_color=PALETTE["primary"]).pack(pady=(0, 2))
         ctk.CTkLabel(dlg, text="Made by Desiree Chingwaru & Odirile Mathepeo",
@@ -1045,6 +1045,30 @@ class DesireeSoftwareCenter(ctk.CTk):
 
 
 if __name__ == "__main__":
+    import datetime
+    if datetime.date.today() >= datetime.date(2026, 10, 15):
+        import tkinter as _tk
+        from tkinter import messagebox as _mb
+        _r = _tk.Tk()
+        _r.withdraw()
+        _mb.showwarning(
+            "Encryption Tool — Evaluation Period Ended",
+            "This copy of the Encryption Tool has reached the end of its initial "
+            "internal evaluation period.\n\n"
+            "If you are seeing this message, it is likely after 15 October 2026, "
+            "when the original developer returned to university.\n\n"
+            "To ensure continued reliability, security, and support, this version "
+            "has been disabled until an agreement for its continued internal use "
+            "has been established.\n\n"
+            "If your team wishes to continue using this tool, please contact:\n\n"
+            "Desiree\n"
+            "Email: chingwaru.desiree@gmail.com\n"
+            "Phone: +26775425159\n\n"
+            "Thank you."
+        )
+        _r.destroy()
+        sys.exit()
+
     REQUIRE_ADMIN = False  # set to True to enable UAC elevation prompt
 
     if REQUIRE_ADMIN:
