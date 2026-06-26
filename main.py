@@ -73,7 +73,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         super().__init__()
 
         self.logic = AppLogic()
-        self.title("Desiree Software Center")
+        self.title("debsSoft-kit v-0.4")
         self.geometry("1000x680")
         self.configure(fg_color=PALETTE["app_bg"])
         self.icons = self.load_icons()
@@ -141,7 +141,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.header_frame.grid(row=0, column=0, padx=8, pady=8, sticky="ew")
         self.header_frame.grid_columnconfigure(0, weight=1)
 
-        self.header_title = ctk.CTkLabel(self.header_frame, text="Desiree Software Center", text_color="white", font=ctk.CTkFont(size=22, weight="bold"))
+        self.header_title = ctk.CTkLabel(self.header_frame, text="debsSoft-kit v-0.4", text_color="white", font=ctk.CTkFont(size=22, weight="bold"))
         self.header_title.grid(row=0, column=0, padx=14, pady=14, sticky="w")
 
         self.wifi_status_label = ctk.CTkLabel(self.header_frame, text="Checking connection...", text_color="white", font=ctk.CTkFont(weight="bold"))

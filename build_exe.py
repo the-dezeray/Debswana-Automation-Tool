@@ -10,7 +10,7 @@ def make_ico():
     return dst
 
 def build():
-    app_name = "DesireeSoftwareCenter"
+    app_name = "debsSoft-kit"
     icon = make_ico()
 
     cmd = [
