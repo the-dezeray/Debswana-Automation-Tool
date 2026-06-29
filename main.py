@@ -1008,7 +1008,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         ctk.CTkButton(dlg, text=" Rename this PC  (Ctrl+R)",
                       image=self.icon("computer"), compound="left",
                       command=lambda: subprocess.Popen(
-                          "ms-settings:about", shell=True),
+                          "systempropertiescomputername", shell=True),
                       **btn_cfg).pack(fill="x", padx=16, pady=(0, 4))
 
         ctk.CTkButton(dlg, text=" Installed Apps  (Ctrl+L)",
