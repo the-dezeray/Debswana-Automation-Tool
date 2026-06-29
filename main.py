@@ -29,7 +29,7 @@ PALETTE = {
 CATEGORY_COLORS = {
     "Standard": "#eef6ff",
     "Mining": "#f3f7fb",
-    "Oil Processing": "#e8f0fa",
+    "Ore Processing": "#e8f0fa",
     "IM": "#eaf4ff",
     "Uninstallers": "#f6f1f5",
 }
@@ -38,7 +38,7 @@ CATEGORY_ICONS = {
     "All": "grid",
     "Standard": "standard",
     "Mining": "mining",
-    "Oil Processing": "oil",
+    "Ore Processing": "ore",
     "IM": "im",
     "Uninstallers": "uninstall",
 }
@@ -59,8 +59,8 @@ ICON_FILES = {
     "standard_active": "badge-check-active.png",
     "mining": "pickaxe.png",
     "mining_active": "pickaxe-active.png",
-    "oil": "droplets.png",
-    "oil_active": "droplets-active.png",
+    "ore": "droplets.png",
+    "ore_active": "droplets-active.png",
     "im": "monitor-cog.png",
     "im_active": "monitor-cog-active.png",
     "uninstall": "trash-2.png",
@@ -250,7 +250,7 @@ class DesireeSoftwareCenter(ctk.CTk):
 
         self.category_buttons = []
         categories = ["All", "Standard", "Mining",
-                      "Oil Processing", "IM", "Uninstallers"]
+                      "Ore Processing", "IM", "Uninstallers"]
         for i, cat in enumerate(categories):
             btn = ctk.CTkButton(
                 self.sidebar_frame, text=cat, corner_radius=10, height=34,
@@ -671,7 +671,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         ctk.CTkLabel(dlg, text="Category:").grid(
             row=3, column=0, padx=14, pady=7, sticky="e")
         cat_combo = ctk.CTkComboBox(dlg, values=[
-                                    "Standard", "Mining", "Oil Processing", "IM", "Uninstallers"], width=300)
+                                    "Standard", "Mining", "Ore Processing", "IM", "Uninstallers"], width=300)
         cat_combo.set(app.get("category", "Standard"))
         cat_combo.grid(row=3, column=1, padx=14, pady=7)
 
@@ -847,7 +847,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         ctk.CTkLabel(dlg, text="Category:").grid(
             row=3, column=0, padx=14, pady=7, sticky="e")
         cat_combo = ctk.CTkComboBox(dlg, values=[
-                                    "Standard", "Mining", "Oil Processing", "IM", "Uninstallers"], width=300)
+                                    "Standard", "Mining", "Ore Processing", "IM", "Uninstallers"], width=300)
         cat_combo.grid(row=3, column=1, padx=14, pady=7)
         cat_combo.set("Standard")
 
