@@ -422,19 +422,25 @@ class DesireeSoftwareCenter(ctk.CTk):
                                              command=self.show_install_all_dialog, **btn_cfg)
         self.install_all_btn.grid(row=0, column=2, padx=6, pady=6)
 
-        self.add_app_btn = ctk.CTkButton(action, text="Add App", image=self.icon("plus"),
-                                         compound="left", fg_color=PALETTE["surface"],
+        self.add_app_btn = ctk.CTkButton(action, text="", image=self.icon("plus"),
+                                         width=40, height=32,
+                                         fg_color=PALETTE["surface"],
                                          text_color=PALETTE["text"], hover_color=PALETTE["sidebar_hover"],
                                          border_width=1, border_color=PALETTE["border"],
                                          command=self.show_add_app_dialog)
         self.add_app_btn.grid(row=0, column=3, padx=6, pady=6)
 
-        # Dashboard
+        # Dashboard - optimized for smooth scrolling
         self.dashboard_frame = ctk.CTkScrollableFrame(
-            self.main_frame, fg_color="transparent")
+            self.main_frame, fg_color="transparent", 
+            scrollbar_button_color=PALETTE["primary"],
+            scrollbar_button_hover_color=PALETTE["primary_hover"])
         self.dashboard_frame.grid(
             row=2, column=0, padx=14, pady=6, sticky="nsew")
         self.dashboard_frame.grid_columnconfigure((0, 1), weight=1)
+        
+        # Configure scrolling performance
+        self.dashboard_frame._scrollbar.configure(width=12)  # Wider scrollbar for easier grabbing
 
         # Status bar
         status_frame = ctk.CTkFrame(
@@ -487,14 +493,45 @@ class DesireeSoftwareCenter(ctk.CTk):
 
     def _on_search_change(self):
         self._selected_index = -1
-        self.render_apps()
+        # Debounce search to avoid excessive re-rendering while typing
+        if hasattr(self, '_search_job') and self._search_job:
+            self.after_cancel(self._search_job)
+        self._search_job = self.after(150, self.render_apps)  # 150ms delay
 
     def _move_selection(self, delta):
         if not self._filtered_apps:
             return
-        self._selected_index = max(0, min(len(self._filtered_apps) - 1,
-                                          self._selected_index + delta))
-        self.render_apps()
+        new_index = max(0, min(len(self._filtered_apps) - 1,
+                              self._selected_index + delta))
+        if new_index != self._selected_index:
+            self._selected_index = new_index
+            self._update_selection_only()  # Fast selection update without full render
+
+    def _update_selection_only(self):
+        """Fast update that only changes selection colors without full rebuild"""
+        prev_sel = getattr(self, "_prev_selected_index", -2)
+        for idx in {prev_sel, self._selected_index}:
+            card = self._card_widgets.get(idx)
+            if card is None or idx >= len(self._filtered_apps):
+                continue
+            selected = (idx == self._selected_index)
+            app = self._filtered_apps[idx]
+            cat = app.get("category", "")
+            
+            # Update colors efficiently
+            bg = PALETTE["primary"] if selected else CATEGORY_COLORS.get(cat, PALETTE["surface"])
+            txt_color = "white" if selected else PALETTE["text"]
+            muted_color = "#c8d7e6" if selected else PALETTE["muted"]
+            bw = 2 if selected else 1
+            bc = PALETTE["primary"] if selected else PALETTE["border"]
+            
+            card.configure(fg_color=bg, border_width=bw, border_color=bc)
+            children = card.winfo_children()
+            if len(children) >= 2:
+                children[0].configure(text_color=txt_color)
+                children[1].configure(text_color=muted_color)
+        
+        self._prev_selected_index = self._selected_index
 
     def _install_selected(self):
         # Don't fire if user is typing in an entry widget
@@ -588,8 +625,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         search = self.search_entry.get().lower()
         apps = self.logic.apps
         if self.selected_category != "All":
-            apps = [a for a in apps if a.get(
-                "category") == self.selected_category]
+            apps = [a for a in apps if a.get("category") == self.selected_category]
         if search:
             apps = [a for a in apps if search in a.get("name", "").lower()
                     or search in a.get("category", "").lower()]
@@ -597,49 +633,41 @@ class DesireeSoftwareCenter(ctk.CTk):
         new_keys = [id(a) for a in apps]
 
         if new_keys != self._rendered_keys:
-            # List changed — full rebuild
-            for w in self.dashboard_frame.winfo_children():
+            # List changed — batch widget operations for better performance
+            
+            # Destroy old widgets efficiently
+            children = self.dashboard_frame.winfo_children()
+            for w in children:
                 w.destroy()
+            
             self._card_widgets = {}
             self._filtered_apps = apps
             self._rendered_keys = new_keys
-            for i, app in enumerate(apps):
-                self._create_app_card(
-                    app, i, selected=(i == self._selected_index))
+            
+            # Create cards in batches to improve responsiveness
+            batch_size = 20
+            for i in range(0, len(apps), batch_size):
+                batch = apps[i:i + batch_size]
+                for j, app in enumerate(batch):
+                    idx = i + j
+                    self._create_app_card(app, idx, selected=(idx == self._selected_index))
+                
+                # Allow UI to update between batches for larger lists
+                if len(apps) > batch_size and i + batch_size < len(apps):
+                    self.update_idletasks()
         else:
-            # Only selection changed — recolor in place
+            # Only selection changed — use fast update
             self._filtered_apps = apps
-            prev_sel = getattr(self, "_prev_selected_index", -2)
-            for idx in {prev_sel, self._selected_index}:
-                card = self._card_widgets.get(idx)
-                if card is None:
-                    continue
-                selected = (idx == self._selected_index)
-                app = apps[idx]
-                cat = app.get("category", "")
-                bg = PALETTE["primary"] if selected else CATEGORY_COLORS.get(
-                    cat, PALETTE["surface"])
-                txt_color = "white" if selected else PALETTE["text"]
-                muted_color = "#c8d7e6" if selected else PALETTE["muted"]
-                bw = 2 if selected else 1
-                bc = PALETTE["primary"] if selected else PALETTE["border"]
-                card.configure(fg_color=bg, border_width=bw, border_color=bc)
-                children = card.winfo_children()
-                # name label, category label, install button
-                if len(children) >= 2:
-                    children[0].configure(text_color=txt_color)
-                    children[1].configure(text_color=muted_color)
-
-        self._prev_selected_index = self._selected_index
+            self._update_selection_only()
 
     def _create_app_card(self, app, index, selected=False):
         row, col = divmod(index, 2)
         cat = app.get("category", "")
-        bg = PALETTE["primary"] if selected else CATEGORY_COLORS.get(
-            cat, PALETTE["surface"])
+        bg = PALETTE["primary"] if selected else CATEGORY_COLORS.get(cat, PALETTE["surface"])
         txt_color = "white" if selected else PALETTE["text"]
         muted_color = "#c8d7e6" if selected else PALETTE["muted"]
 
+        # Create frame with optimized settings
         card = ctk.CTkFrame(self.dashboard_frame, height=64, corner_radius=8,
                             border_width=2 if selected else 1,
                             border_color=PALETTE["primary"] if selected else PALETTE["border"],
@@ -648,27 +676,36 @@ class DesireeSoftwareCenter(ctk.CTk):
         card.grid_columnconfigure(0, weight=1)
         self._card_widgets[index] = card
 
+        # Cache font objects to avoid recreation
+        if not hasattr(self, '_card_fonts'):
+            self._card_fonts = {
+                'name': ctk.CTkFont(size=13, weight="bold"),
+                'category': ctk.CTkFont(size=11)
+            }
+
         name_lbl = ctk.CTkLabel(card, text=app.get("name", ""),
-                                font=ctk.CTkFont(size=13, weight="bold"), text_color=txt_color)
+                                font=self._card_fonts['name'], text_color=txt_color)
         name_lbl.grid(row=0, column=0, padx=10, pady=(7, 0), sticky="w")
 
-        ctk.CTkLabel(card, text=cat, font=ctk.CTkFont(size=11),
+        ctk.CTkLabel(card, text=cat, font=self._card_fonts['category'],
                      text_color=muted_color).grid(row=1, column=0, padx=10, pady=(0, 7), sticky="w")
 
         ctk.CTkButton(card, text="", image=self.icon("download"), compound="left",
-                      width=98, height=28,
+                      width=90, height=26,
                       fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"],
                       command=lambda a=app: self.install_thread(a)).grid(
-                          row=0, column=1, rowspan=2, padx=10, pady=7)
+                          row=0, column=1, rowspan=2, padx=8, pady=5)
 
-        # Click to select
+        # Optimize event binding
         def on_click(e, idx=index):
-            self._selected_index = idx
-            self.render_apps()
+            if self._selected_index != idx:
+                self._selected_index = idx
+                self._update_selection_only()
 
         def on_right_click(e, a=app):
             self._show_card_menu(e, a)
 
+        # Bind events more efficiently
         for w in (card, name_lbl):
             w.bind("<Button-1>", on_click)
             w.bind("<Button-3>", on_right_click)
@@ -699,8 +736,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         dlg.title(f"Edit — {app.get('name', '')}")
         dlg.grab_set()
         
-        # Center the edit dialog
-        center_window(dlg, 460, 280)
+        # Center the edit dialog (increased height for checkbox)
+        center_window(dlg, 460, 320)
 
         field_defs = [("Name:", "name"), ("Path:", "path"), ("Args:", "args")]
         entries = []
@@ -734,17 +771,30 @@ class DesireeSoftwareCenter(ctk.CTk):
         cat_combo.set(app.get("category", "Standard"))
         cat_combo.grid(row=3, column=1, padx=14, pady=7)
 
+        # Copy and Run checkbox
+        copy_run_var = tk.BooleanVar()
+        copy_run_var.set(app.get("type", "exe") == "copy-then-run")
+        copy_run_checkbox = ctk.CTkCheckBox(
+            dlg, 
+            text="Copy and Run (for installations that need local files)",
+            variable=copy_run_var,
+            font=ctk.CTkFont(size=11),
+            text_color=PALETTE["text"]
+        )
+        copy_run_checkbox.grid(row=4, column=0, columnspan=2, padx=14, pady=7, sticky="w")
+
         def save():
             app["name"] = entries[0].get()
             app["path"] = entries[1].get()
             app["args"] = entries[2].get()
             app["category"] = cat_combo.get()
+            app["type"] = "copy-then-run" if copy_run_var.get() else "exe"
             self.logic.save_apps()
             self.render_apps()
             dlg.destroy()
 
         btn_frame = ctk.CTkFrame(dlg, fg_color="transparent")
-        btn_frame.grid(row=4, column=0, columnspan=2, pady=12)
+        btn_frame.grid(row=5, column=0, columnspan=2, pady=12)
 
         ctk.CTkButton(btn_frame, text="Save", command=save,
                       fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"]).pack(side="left", padx=(0, 6))
@@ -881,8 +931,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         dlg.title("Add Application")
         dlg.grab_set()
         
-        # Center the add app dialog
-        center_window(dlg, 460, 280)
+        # Center the add app dialog (increased height for checkbox)
+        center_window(dlg, 460, 320)
 
         fields = [("Name:", None), ("Path:", None), ("Args:", None)]
         entries = []
@@ -914,15 +964,27 @@ class DesireeSoftwareCenter(ctk.CTk):
         cat_combo.grid(row=3, column=1, padx=14, pady=7)
         cat_combo.set("Standard")
 
+        # Copy and Run checkbox
+        copy_run_var = tk.BooleanVar()
+        copy_run_checkbox = ctk.CTkCheckBox(
+            dlg, 
+            text="Copy and Run (for installations that need local files)",
+            variable=copy_run_var,
+            font=ctk.CTkFont(size=11),
+            text_color=PALETTE["text"]
+        )
+        copy_run_checkbox.grid(row=4, column=0, columnspan=2, padx=14, pady=7, sticky="w")
+
         def save():
+            app_type = "copy-then-run" if copy_run_var.get() else "exe"
             self.logic.add_app(entries[0].get(), entries[1].get(
-            ), entries[2].get(), "", cat_combo.get())
+            ), entries[2].get(), "", cat_combo.get(), app_type)
             self.render_apps()
             dlg.destroy()
 
         ctk.CTkButton(dlg, text="Save", command=save,
                       fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"]).grid(
-                          row=4, column=0, columnspan=2, pady=12)
+                          row=5, column=0, columnspan=2, pady=12)
 
         # Bind Enter in dialog to save
         dlg.bind("<Return>", lambda e: save())
