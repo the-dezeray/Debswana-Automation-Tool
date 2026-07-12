@@ -408,7 +408,7 @@ class DesireeSoftwareCenter(ctk.CTk):
 
         ctk.CTkLabel(action, image=self.icon("search"),
                      text="").grid(row=0, column=0, padx=(0, 6))
-        self.search_entry = ctk.CTkEntry(action, placeholder_text="Search applications...",
+        self.search_entry = ctk.CTkEntry(action, placeholder_text="Search applications (min 3 chars)...",
                                          width=350, fg_color=PALETTE["surface"],
                                          border_color=PALETTE["border"], text_color=PALETTE["text"])
         self.search_entry.grid(row=0, column=1, padx=(0, 12), pady=6)
@@ -493,10 +493,15 @@ class DesireeSoftwareCenter(ctk.CTk):
 
     def _on_search_change(self):
         self._selected_index = -1
+        # Only search after 3+ characters (or empty for reset)
+        search_text = self.search_entry.get()
+        if len(search_text) > 0 and len(search_text) < 3:
+            return  # Don't trigger search until 3+ chars
+        
         # Debounce search to avoid excessive re-rendering while typing
         if hasattr(self, '_search_job') and self._search_job:
             self.after_cancel(self._search_job)
-        self._search_job = self.after(150, self.render_apps)  # 150ms delay
+        self._search_job = self.after(100, self.render_apps)  # Reduced to 100ms for snappier feel
 
     def _move_selection(self, delta):
         if not self._filtered_apps:
@@ -626,9 +631,14 @@ class DesireeSoftwareCenter(ctk.CTk):
         apps = self.logic.apps
         if self.selected_category != "All":
             apps = [a for a in apps if a.get("category") == self.selected_category]
-        if search:
-            apps = [a for a in apps if search in a.get("name", "").lower()
-                    or search in a.get("category", "").lower()]
+        
+        if search and len(search) >= 3:  # Only filter if 3+ characters
+            # Pre-compile search terms for better performance
+            search_terms = search.split()  # Support multi-word search
+            apps = [a for a in apps 
+                   if all(term in a.get("name", "").lower() or 
+                         term in a.get("category", "").lower() 
+                         for term in search_terms)]
 
         new_keys = [id(a) for a in apps]
 
@@ -691,7 +701,7 @@ class DesireeSoftwareCenter(ctk.CTk):
                      text_color=muted_color).grid(row=1, column=0, padx=10, pady=(0, 7), sticky="w")
 
         ctk.CTkButton(card, text="", image=self.icon("download"), compound="left",
-                      width=90, height=26,
+                      width=45, height=26,
                       fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"],
                       command=lambda a=app: self.install_thread(a)).grid(
                           row=0, column=1, rowspan=2, padx=8, pady=5)
