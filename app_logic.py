@@ -15,8 +15,13 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 class AppLogic:
-    def __init__(self):
-        self.apps_json_path = APPS_JSON_NETWORK
+    def __init__(self, config=None):
+        self.config = config or {}
+        # Use local apps.json if WiFi check is disabled, otherwise use network path
+        if not self.config.get("wifi_check", True):
+            self.apps_json_path = "apps.json"  # Local file in project directory
+        else:
+            self.apps_json_path = APPS_JSON_NETWORK
         self.apps: List[Dict[str, Any]] = []
 
     def load_apps(self):
@@ -99,10 +104,19 @@ class AppLogic:
                 status_callback(msg, color)
 
         try:
-            update("Checking network...", "orange")
-            if not self.is_server_reachable():
-                update("Server unreachable. Check your network connection.", "red")
-                return False
+            # Skip network check if in local mode
+            if self.config.get("wifi_check", True):
+                update("Checking network...", "orange")
+                if not self.is_server_reachable():
+                    update("Server unreachable. Check your network connection.", "red")
+                    return False
+            else:
+                update("Local mode - simulating installation...", "orange")
+                # In local mode, simulate installation for testing
+                import time
+                time.sleep(2)  # Simulate installation time
+                update(f"{name} - Installation completed (simulated).", "green")
+                return True
 
             if app_type == "copy-then-run":
                 update(f"Copying installation files for {name}...", "orange")

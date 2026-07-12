@@ -8,6 +8,14 @@ import sys
 import threading
 from app_logic import AppLogic, resource_path
 
+# ══════════════════════════════════════════════════════════════════════════
+# CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════
+CONFIG = {
+    "wifi_check": False,  # Set to False to skip WiFi checking and use local apps.json
+}
+# ══════════════════════════════════════════════════════════════════════════
+
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
@@ -72,13 +80,37 @@ ICON_FILES = {
 }
 
 
+def center_window(window, width=600, height=400):
+    """Center a window on the screen accounting for display scaling"""
+    # 1. Update the window to ensure accurate scaling factors are fetched
+    window.update_idletasks()
+    
+    # 2. Get the current OS/window scaling factor (e.g., 1.0, 1.25, 1.5)
+    scaling_factor = ctk.ScalingTracker.get_window_scaling(window)
+    
+    # 3. Get the physical monitor dimensions
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    
+    # 4. Calculate coordinates adjusted for scaling
+    # We multiply by the scaling factor so the window accounts for OS-level display scaling
+    x = int(((screen_width / 2) - (width / 2)) * scaling_factor)
+    y = int(((screen_height / 2) - (height / 2)) * scaling_factor)
+    
+    # 5. Set the window size and positioning string (Width x Height + X + Y)
+    window.geometry(f"{width}x{height}+{x}+{y}")
+
+
 class DesireeSoftwareCenter(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.logic = AppLogic()
+        self.logic = AppLogic(config=CONFIG)
         self.title("debsSoft-kit  v-0.4")
-        self.geometry("1000x680")
-        self.after(0, lambda: self.state("zoomed"))
+        self.resizable(False, False)
+        
+        # Center the main window
+        center_window(self, 1200, 650)
+        
         self.configure(fg_color=PALETTE["app_bg"])
         self.icons = self._load_icons()
         self._selected_index = -1
@@ -93,20 +125,28 @@ class DesireeSoftwareCenter(ctk.CTk):
         self._build_main()
         self._bind_shortcuts()
 
-        # Show connection check before loading apps
-        self.after(100, self._show_connection_check)
+        # Show connection check or skip to loading apps based on config
+        if CONFIG["wifi_check"]:
+            self.after(100, self._show_connection_check)
+        else:
+            # Skip WiFi check, load apps directly and show local mode in status
+            self.after(100, self._load_local_mode)
+
+   
 
     # ── Startup connection check ───────────────────────────────────────────
     def _show_connection_check(self):
         self._conn_dlg = ctk.CTkToplevel(self)
         self._conn_dlg.title("Checking Connection")
-        self._conn_dlg.geometry("380x320")
         self._conn_dlg.resizable(False, False)
         self._conn_dlg.grab_set()
         # block closing just the dialog
         self._conn_dlg.protocol("WM_DELETE_WINDOW", lambda: None)
         # allow closing the whole app
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        # Center the connection dialog
+        center_window(self._conn_dlg, 380, 320)
 
         # Center on parent
         self._conn_dlg.transient(self)
@@ -219,6 +259,19 @@ class DesireeSoftwareCenter(ctk.CTk):
     def _post_connection_ready(self, status):
         """Called after successful connection check — load apps and set up UI."""
         self.update_wifi_status(status)
+        threading.Thread(target=self._load_and_render, daemon=True).start()
+
+    def _load_local_mode(self):
+        """Skip WiFi check and load from local apps.json"""
+        # Set local mode status
+        local_status = {
+            "connected": True,
+            "ssid": "Local Mode",
+            "is_debs": False,
+            "server_ok": False,
+            "local_mode": True
+        }
+        self.update_wifi_status(local_status)
         threading.Thread(target=self._load_and_render, daemon=True).start()
 
     def _load_and_render(self):
@@ -505,7 +558,11 @@ class DesireeSoftwareCenter(ctk.CTk):
 
     # ── WiFi header label ──────────────────────────────────────────────────
     def update_wifi_status(self, status):
-        if status.get("is_debs") and status.get("server_ok"):
+        if status.get("local_mode"):
+            self.wifi_status_label.configure(
+                image=self.icon("computer"), compound="left",
+                text="● Local Mode (Testing)", text_color="#87CEEB")
+        elif status.get("is_debs") and status.get("server_ok"):
             self.wifi_status_label.configure(
                 image=self.icon("wifi"), compound="left",
                 text=f"● DEBS Connected ({status['ssid']})", text_color="#90EE90")
@@ -598,7 +655,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         ctk.CTkLabel(card, text=cat, font=ctk.CTkFont(size=11),
                      text_color=muted_color).grid(row=1, column=0, padx=10, pady=(0, 7), sticky="w")
 
-        ctk.CTkButton(card, text="Install", image=self.icon("download"), compound="left",
+        ctk.CTkButton(card, text="", image=self.icon("download"), compound="left",
                       width=98, height=28,
                       fg_color=PALETTE["primary"], hover_color=PALETTE["primary_hover"],
                       command=lambda a=app: self.install_thread(a)).grid(
@@ -640,8 +697,10 @@ class DesireeSoftwareCenter(ctk.CTk):
     def _edit_app_dialog(self, app):
         dlg = ctk.CTkToplevel(self)
         dlg.title(f"Edit — {app.get('name', '')}")
-        dlg.geometry("460x280")
         dlg.grab_set()
+        
+        # Center the edit dialog
+        center_window(dlg, 460, 280)
 
         field_defs = [("Name:", "name"), ("Path:", "path"), ("Args:", "args")]
         entries = []
@@ -656,7 +715,7 @@ class DesireeSoftwareCenter(ctk.CTk):
                 e.pack(side="left", padx=(0, 6))
 
                 def browse(entry=e):
-                    f = filedialog.askopenfilename()
+                    f = filedialog.askopenfilename(initialdir=r"\\10.50.93.5\g")
                     if f:
                         entry.delete(0, "end")
                         entry.insert(0, f)
@@ -749,8 +808,10 @@ class DesireeSoftwareCenter(ctk.CTk):
 
         dlg = ctk.CTkToplevel(self)
         dlg.title("Select Applications to Install")
-        dlg.geometry("700x560")
         dlg.grab_set()
+        
+        # Center the bulk install dialog
+        center_window(dlg, 700, 560)
 
         ctk.CTkLabel(dlg, text="Select applications to install:",
                      font=ctk.CTkFont(size=15, weight="bold")).pack(pady=14)
@@ -818,8 +879,10 @@ class DesireeSoftwareCenter(ctk.CTk):
     def show_add_app_dialog(self):
         dlg = ctk.CTkToplevel(self)
         dlg.title("Add Application")
-        dlg.geometry("460x280")
         dlg.grab_set()
+        
+        # Center the add app dialog
+        center_window(dlg, 460, 280)
 
         fields = [("Name:", None), ("Path:", None), ("Args:", None)]
         entries = []
@@ -833,7 +896,7 @@ class DesireeSoftwareCenter(ctk.CTk):
                 e.pack(side="left", padx=(0, 6))
 
                 def browse(entry=e):
-                    f = filedialog.askopenfilename()
+                    f = filedialog.askopenfilename(initialdir=r"\\10.50.93.5\g")
                     if f:
                         entry.delete(0, "end")
                         entry.insert(0, f)
@@ -929,10 +992,12 @@ class DesireeSoftwareCenter(ctk.CTk):
     def _open_about(self):
         dlg = ctk.CTkToplevel(self)
         dlg.title("About")
-        dlg.geometry("380x450")
         dlg.resizable(False, False)
         dlg.grab_set()
         dlg.focus_force()
+        
+        # Center the about dialog
+        center_window(dlg, 380, 450)
 
         logo_file = resource_path("image.png")
         if os.path.exists(logo_file):
@@ -977,10 +1042,12 @@ class DesireeSoftwareCenter(ctk.CTk):
     def _open_quick_tools(self):
         dlg = ctk.CTkToplevel(self)
         dlg.title("Quick Tools")
-        dlg.geometry("280x200")
         dlg.resizable(False, False)
         dlg.grab_set()
         dlg.focus_force()
+        
+        # Center the quick tools dialog
+        center_window(dlg, 280, 200)
 
         ctk.CTkLabel(dlg, text="Quick Tools",
                      font=ctk.CTkFont(size=14, weight="bold"),
