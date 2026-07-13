@@ -12,7 +12,7 @@ from app_logic import AppLogic, resource_path
 # CONFIGURATION
 # ══════════════════════════════════════════════════════════════════════════
 CONFIG = {
-    "wifi_check": False,  # Set to False to skip WiFi checking and use local apps.json
+    "wifi_check": True,  # Set to False to skip WiFi checking and use local apps.json
 }
 # ══════════════════════════════════════════════════════════════════════════
 
