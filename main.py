@@ -101,6 +101,19 @@ def center_window(window, width=600, height=400):
     window.geometry(f"{width}x{height}+{x}+{y}")
 
 
+def get_initial_window_size(window):
+    """Pick a smaller window size for smaller screens."""
+    window.update_idletasks()
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+
+    if screen_width <= 1280 or screen_height <= 720:
+        return 1000, 580
+    if screen_width <= 1440 or screen_height <= 900:
+        return 1100, 620
+    return 1200, 650
+
+
 class DesireeSoftwareCenter(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -108,8 +121,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         self.title("debsSoft-kit  v-0.4")
         self.resizable(False, False)
         
-        # Center the main window
-        center_window(self, 1200, 650)
+        width, height = get_initial_window_size(self)
+        center_window(self, width, height)
         
         self.configure(fg_color=PALETTE["app_bg"])
         self.icons = self._load_icons()
@@ -117,6 +130,7 @@ class DesireeSoftwareCenter(ctk.CTk):
         self._filtered_apps = []
         self._rendered_keys = []   # list of id(app) for current cards
         self._card_widgets = {}    # index -> card CTkFrame
+        self._closing = False
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -140,9 +154,8 @@ class DesireeSoftwareCenter(ctk.CTk):
         self._conn_dlg.title("Checking Connection")
         self._conn_dlg.resizable(False, False)
         self._conn_dlg.grab_set()
-        # block closing just the dialog
+        # block closing just the dialog itself; allow full app shutdown
         self._conn_dlg.protocol("WM_DELETE_WINDOW", lambda: None)
-        # allow closing the whole app
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Center the connection dialog
@@ -208,6 +221,8 @@ class DesireeSoftwareCenter(ctk.CTk):
 
     def _do_connection_check(self):
         status = self.logic.check_connection()
+        if self._closing:
+            return
         self.after(0, lambda: self._handle_connection_result(status))
 
     def _handle_connection_result(self, status):
@@ -275,7 +290,11 @@ class DesireeSoftwareCenter(ctk.CTk):
         threading.Thread(target=self._load_and_render, daemon=True).start()
 
     def _load_and_render(self):
+        if self._closing:
+            return
         self.logic.load_apps()
+        if self._closing:
+            return
         self.after(0, self.render_apps)
 
     # ── Icons ──────────────────────────────────────────────────────────────
@@ -460,6 +479,7 @@ class DesireeSoftwareCenter(ctk.CTk):
 
     # ── App close ──────────────────────────────────────────────────────────
     def _on_close(self):
+        self._closing = True
         try:
             self._dismiss_conn_dlg()
         except Exception:
